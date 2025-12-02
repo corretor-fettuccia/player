@@ -25,10 +25,12 @@
             align-items: center;
             justify-content: center;
             padding: 10px;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .container {
             width: 380px;
+            max-width: 100%;
             background: #222;
             border-radius: 10px;
             overflow: hidden;
@@ -94,10 +96,17 @@
             border: 3px solid var(--primary);
             box-shadow: 0 0 20px rgba(0, 200, 83, 0.3);
             transition: transform 0.3s ease;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .album-art.rotating {
             animation: rotate 10s linear infinite;
+            animation-play-state: running;
+        }
+
+        .album-art.paused {
+            animation-play-state: paused;
         }
 
         @keyframes rotate {
@@ -120,6 +129,7 @@
             border-radius: 3px;
             cursor: pointer;
             margin-bottom: 3px;
+            touch-action: none;
         }
 
         .progress-fill {
@@ -155,6 +165,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .control-btn.active {
@@ -179,6 +191,7 @@
             overflow: hidden;
             position: relative;
             cursor: pointer;
+            touch-action: manipulation;
         }
 
         .vu-header {
@@ -205,6 +218,7 @@
             padding: 2px 6px;
             border-radius: 3px;
             transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .vu-mode-btn:hover {
@@ -304,6 +318,7 @@
             background: #333;
             border-radius: 2px;
             cursor: pointer;
+            touch-action: none;
         }
 
         .volume-fill {
@@ -311,6 +326,30 @@
             background: var(--primary);
             width: 70%;
             border-radius: 2px;
+        }
+
+        /* Estilo para dispositivos móveis */
+        @media (max-width: 480px) {
+            .container {
+                width: 100%;
+                border-radius: 0;
+            }
+            
+            body {
+                padding: 0;
+                align-items: flex-start;
+                padding-top: env(safe-area-inset-top);
+            }
+            
+            .control-btn {
+                width: 44px;
+                height: 44px;
+            }
+            
+            .play-btn {
+                width: 50px;
+                height: 50px;
+            }
         }
     </style>
 </head>
@@ -411,21 +450,135 @@
                 
                 this.isPlaying = false;
                 this.isLooping = false;
-                this.vuMode = 'bars'; // 'bars' ou 'wave'
+                this.vuMode = 'bars';
                 this.audio.volume = 0.7;
                 this.volumeFill.style.width = '70%';
                 this.audio.crossOrigin = "anonymous";
+                
+                // Configurações para funcionar em dispositivos móveis
                 this.audioContext = null;
                 this.analyser = null;
                 this.dataArray = null;
                 this.source = null;
+                this.gainNode = null;
                 this.vuAnimationId = null;
                 this.waveBars = [];
+                this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                this.isAndroid = /Android/.test(navigator.userAgent);
+                this.isMobile = this.isIOS || this.isAndroid;
+                
+                // Para iOS, precisamos de interação do usuário
+                this.userInteracted = false;
                 
                 this.initVUMeter();
                 this.initEventListeners();
+                this.initMobileSupport();
                 this.checkUrlParams();
-                this.setVUMode('bars'); // Começa com barras
+                this.setVUMode('bars');
+            }
+
+            initMobileSupport() {
+                // Adicionar eventos para detectar interação do usuário
+                const interactionEvents = ['touchstart', 'click', 'touchend'];
+                
+                interactionEvents.forEach(event => {
+                    document.addEventListener(event, () => {
+                        this.userInteracted = true;
+                    }, { once: true });
+                });
+
+                // Gerenciar visibilidade da página para dispositivos móveis
+                document.addEventListener('visibilitychange', () => {
+                    this.handleVisibilityChange();
+                });
+
+                // Lidar com eventos de pausa/resume em iOS
+                if (this.isIOS) {
+                    document.addEventListener('webkitvisibilitychange', () => {
+                        this.handleVisibilityChange();
+                    });
+                    
+                    window.addEventListener('pagehide', () => {
+                        this.handlePageHide();
+                    });
+                    
+                    window.addEventListener('pageshow', () => {
+                        this.handlePageShow();
+                    });
+                }
+
+                // Prevenir comportamento padrão de toque longo
+                document.addEventListener('touchstart', (e) => {
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+
+                // Configurar áudio para funcionar em segundo plano
+                this.audio.setAttribute('playsinline', '');
+                this.audio.setAttribute('webkit-playsinline', '');
+            }
+
+            handleVisibilityChange() {
+                if (document.hidden) {
+                    // Página está oculta (tela bloqueada ou app em background)
+                    if (this.isPlaying && this.isMobile) {
+                        // Manter o áudio tocando, mas pausar animações visuais
+                        this.pauseVisualEffects();
+                    }
+                } else {
+                    // Página está visível novamente
+                    if (this.isPlaying && this.audioContext && this.audioContext.state === 'suspended') {
+                        // Retomar o contexto de áudio
+                        this.resumeAudioContext();
+                    }
+                    this.resumeVisualEffects();
+                }
+            }
+
+            handlePageHide() {
+                // iOS: página está sendo ocultada
+                if (this.isPlaying) {
+                    this.pauseVisualEffects();
+    }
+            }
+
+            handlePageShow() {
+                // iOS: página está sendo mostrada novamente
+                if (this.isPlaying && this.audioContext && this.audioContext.state === 'suspended') {
+                    this.resumeAudioContext();
+                }
+                this.resumeVisualEffects();
+            }
+
+            async resumeAudioContext() {
+                if (this.audioContext && this.audioContext.state === 'suspended') {
+                    try {
+                        await this.audioContext.resume();
+                        console.log('AudioContext retomado após bloqueio de tela');
+                    } catch (error) {
+                        console.error('Erro ao retomar AudioContext:', error);
+                    }
+                }
+            }
+
+            pauseVisualEffects() {
+                // Pausar animações visuais para economizar bateria
+                if (this.vuAnimationId) {
+                    cancelAnimationFrame(this.vuAnimationId);
+                    this.vuAnimationId = null;
+                }
+                this.albumArt.classList.add('paused');
+                this.waveAnimation.style.animationPlayState = 'paused';
+            }
+
+            resumeVisualEffects() {
+                // Retomar animações visuais
+                if (this.isPlaying && this.analyser) {
+                    this.startVUMeter();
+                }
+                this.albumArt.classList.remove('paused');
+                this.waveAnimation.style.animationPlayState = 'running';
             }
 
             initVUMeter() {
@@ -449,10 +602,49 @@
 
             initEventListeners() {
                 this.audio.addEventListener('timeupdate', () => this.updateProgress());
-                this.audio.addEventListener('loadedmetadata', () => this.totalTime.textContent = this.formatTime(this.audio.duration));
+                this.audio.addEventListener('loadedmetadata', () => {
+                    if (!isNaN(this.audio.duration)) {
+                        this.totalTime.textContent = this.formatTime(this.audio.duration);
+                    }
+                });
                 this.audio.addEventListener('ended', () => this.handleTrackEnd());
+                this.audio.addEventListener('pause', () => this.handleAudioPause());
+                this.audio.addEventListener('play', () => this.handleAudioPlay());
                 
-                this.playBtn.addEventListener('click', () => this.togglePlay());
+                // Interação do usuário necessária para iniciar áudio em dispositivos móveis
+                const startAudio = async () => {
+                    if (!this.userInteracted && this.isMobile) {
+                        // Tentar criar contexto de áudio silenciosamente
+                        try {
+                            await this.setupAudioContext(true);
+                            // Tocar um som silencioso para "destravar" o áudio
+                            const buffer = this.audioContext.createBuffer(1, 1, 22050);
+                            const source = this.audioContext.createBufferSource();
+                            source.buffer = buffer;
+                            source.connect(this.audioContext.destination);
+                            source.start(0);
+                            setTimeout(() => source.disconnect(), 100);
+                        } catch (error) {
+                            console.log('Preparação de áudio para mobile:', error.message);
+                        }
+                        this.userInteracted = true;
+                    }
+                };
+                
+                this.playBtn.addEventListener('click', async (e) => {
+                    if (this.isMobile && !this.userInteracted) {
+                        e.preventDefault();
+                        alert('Toque em qualquer lugar da tela primeiro para ativar o áudio.');
+                        return;
+                    }
+                    await this.togglePlay();
+                });
+                
+                // Permitir toque em qualquer lugar para ativar áudio em mobile
+                if (this.isMobile) {
+                    document.body.addEventListener('touchstart', startAudio, { once: true });
+                    document.body.addEventListener('click', startAudio, { once: true });
+                }
                 
                 this.loopBtn.addEventListener('click', () => {
                     this.isLooping = !this.isLooping;
@@ -461,28 +653,108 @@
                 });
                 
                 this.progressBar.addEventListener('click', (e) => {
+                    if (!this.userInteracted && this.isMobile) return;
+                    
                     const rect = this.progressBar.getBoundingClientRect();
                     const percent = (e.clientX - rect.left) / rect.width;
                     this.audio.currentTime = percent * this.audio.duration;
                 });
                 
+                // Suporte a toque para progress bar em mobile
+                if (this.isMobile) {
+                    let isDragging = false;
+                    
+                    this.progressBar.addEventListener('touchstart', (e) => {
+                        if (!this.userInteracted) return;
+                        isDragging = true;
+                        this.handleProgressTouch(e);
+                    }, { passive: true });
+                    
+                    document.addEventListener('touchmove', (e) => {
+                        if (!this.userInteracted || !isDragging) return;
+                        this.handleProgressTouch(e);
+                    }, { passive: true });
+                    
+                    document.addEventListener('touchend', () => {
+                        isDragging = false;
+                    });
+                }
+                
                 this.volumeSlider.addEventListener('click', (e) => {
+                    if (!this.userInteracted && this.isMobile) return;
+                    
                     const rect = this.volumeSlider.getBoundingClientRect();
                     const percent = (e.clientX - rect.left) / rect.width;
-                    this.audio.volume = percent;
-                    this.volumeFill.style.width = `${percent * 100}%`;
+                    this.audio.volume = Math.max(0, Math.min(1, percent));
+                    this.volumeFill.style.width = `${this.audio.volume * 100}%`;
                 });
                 
-                // Alternar modo VU ao clicar no botão
+                // Suporte a toque para volume slider em mobile
+                if (this.isMobile) {
+                    let isVolumeDragging = false;
+                    
+                    this.volumeSlider.addEventListener('touchstart', (e) => {
+                        if (!this.userInteracted) return;
+                        isVolumeDragging = true;
+                        this.handleVolumeTouch(e);
+                    }, { passive: true });
+                    
+                    document.addEventListener('touchmove', (e) => {
+                        if (!this.userInteracted || !isVolumeDragging) return;
+                        this.handleVolumeTouch(e);
+                    }, { passive: true });
+                    
+                    document.addEventListener('touchend', () => {
+                        isVolumeDragging = false;
+                    });
+                }
+                
                 this.vuModeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.toggleVUMode();
                 });
                 
-                // Alternar modo VU ao clicar em qualquer lugar do container VU
                 this.vuContainer.addEventListener('click', () => {
                     this.toggleVUMode();
                 });
+            }
+
+            handleProgressTouch(e) {
+                const touch = e.touches[0];
+                const rect = this.progressBar.getBoundingClientRect();
+                const percent = (touch.clientX - rect.left) / rect.width;
+                const newTime = Math.max(0, Math.min(this.audio.duration, percent * this.audio.duration));
+                this.audio.currentTime = newTime;
+            }
+
+            handleVolumeTouch(e) {
+                const touch = e.touches[0];
+                const rect = this.volumeSlider.getBoundingClientRect();
+                const percent = (touch.clientX - rect.left) / rect.width;
+                this.audio.volume = Math.max(0, Math.min(1, percent));
+                this.volumeFill.style.width = `${this.audio.volume * 100}%`;
+            }
+
+            handleAudioPause() {
+                // Sincronizar estado visual quando áudio é pausado
+                if (this.isPlaying) {
+                    this.isPlaying = false;
+                    this.playIcon.className = 'fas fa-play';
+                    this.albumArt.classList.remove('rotating');
+                    this.albumArt.classList.add('paused');
+                    this.stopVUMeter();
+                }
+            }
+
+            handleAudioPlay() {
+                // Sincronizar estado visual quando áudio é tocado
+                if (!this.isPlaying) {
+                    this.isPlaying = true;
+                    this.playIcon.className = 'fas fa-pause';
+                    this.albumArt.classList.add('rotating');
+                    this.albumArt.classList.remove('paused');
+                    this.startVUMeter();
+                }
             }
 
             setVUMode(mode) {
@@ -490,7 +762,6 @@
                 this.vuContent.className = 'vu-content';
                 this.vuContent.classList.add(`vu-${mode}-mode`);
                 
-                // Atualizar texto do botão
                 if (mode === 'bars') {
                     this.vuModeText.textContent = 'Onda';
                     this.vuModeBtn.title = 'Mudar para modo Onda';
@@ -501,6 +772,8 @@
             }
 
             toggleVUMode() {
+                if (!this.userInteracted && this.isMobile) return;
+                
                 if (this.vuMode === 'bars') {
                     this.setVUMode('wave');
                 } else {
@@ -508,29 +781,60 @@
                 }
             }
 
-            async setupAudioContext() {
+            async setupAudioContext(silent = false) {
                 if (!this.audioContext) {
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    this.analyser = this.audioContext.createAnalyser();
-                    this.source = this.audioContext.createMediaElementSource(this.audio);
-                    
-                    this.analyser.fftSize = 256;
-                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    
-                    this.source.connect(this.analyser);
-                    this.analyser.connect(this.audioContext.destination);
+                    try {
+                        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                        this.audioContext = new AudioContextClass();
+                        
+                        this.analyser = this.audioContext.createAnalyser();
+                        this.gainNode = this.audioContext.createGain();
+                        this.source = this.audioContext.createMediaElementSource(this.audio);
+                        
+                        this.analyser.fftSize = 256;
+                        this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                        
+                        // Conectar: source -> gain -> analyser -> destination
+                        this.source.connect(this.gainNode);
+                        this.gainNode.connect(this.analyser);
+                        this.analyser.connect(this.audioContext.destination);
+                        
+                        // Configurar ganho
+                        this.gainNode.gain.value = 1.0;
+                        
+                        if (!silent) {
+                            console.log('AudioContext configurado com sucesso');
+                        }
+                    } catch (error) {
+                        console.error('Erro ao configurar AudioContext:', error);
+                        return false;
+                    }
                 }
                 
                 if (this.audioContext.state === 'suspended') {
-                    await this.audioContext.resume();
+                    try {
+                        await this.audioContext.resume();
+                        if (!silent) {
+                            console.log('AudioContext retomado');
+                        }
+                    } catch (error) {
+                        console.error('Erro ao retomar AudioContext:', error);
+                        return false;
+                    }
                 }
+                
+                return true;
             }
 
             startVUMeter() {
-                if (!this.analyser) return;
+                if (!this.analyser || !this.isPlaying) return;
                 
                 const updateVU = () => {
-                    if (!this.isPlaying) return;
+                    if (!this.isPlaying || !this.analyser) {
+                        cancelAnimationFrame(this.vuAnimationId);
+                        this.vuAnimationId = null;
+                        return;
+                    }
                     
                     this.analyser.getByteFrequencyData(this.dataArray);
                     
@@ -546,6 +850,9 @@
                     this.vuAnimationId = requestAnimationFrame(updateVU);
                 };
                 
+                if (this.vuAnimationId) {
+                    cancelAnimationFrame(this.vuAnimationId);
+                }
                 this.vuAnimationId = requestAnimationFrame(updateVU);
             }
 
@@ -557,7 +864,6 @@
                     const frequencyIndex = Math.floor((index / barCount) * this.dataArray.length);
                     const frequencyValue = this.dataArray[frequencyIndex] / 256;
                     
-                    // Criar um efeito mais dinâmico
                     let barHeight;
                     if (normalized > 0.1) {
                         barHeight = 0.1 + (frequencyValue * 0.9);
@@ -568,7 +874,6 @@
                     bar.style.height = `${barHeight * 100}%`;
                     bar.style.opacity = Math.max(0.3, barHeight);
                     
-                    // Cor dinâmica baseada na intensidade
                     const intensity = frequencyValue;
                     const r = Math.floor(0 * intensity);
                     const g = Math.floor(200 * intensity);
@@ -578,12 +883,10 @@
             }
 
             updateWaveMode(normalized) {
-                // Atualizar onda com base nas frequências
                 const waveBars = this.waveBars;
                 const barCount = waveBars.length;
                 
                 waveBars.forEach((bar, index) => {
-                    // Usar múltiplas frequências para criar padrão de onda
                     const freqIndex1 = Math.floor((index / barCount) * (this.dataArray.length / 2));
                     const freqIndex2 = Math.floor(((index + barCount/3) / barCount) * (this.dataArray.length / 2));
                     const freqIndex3 = Math.floor(((index + barCount*2/3) / barCount) * (this.dataArray.length / 2));
@@ -592,32 +895,27 @@
                     const value2 = this.dataArray[freqIndex2] / 256;
                     const value3 = this.dataArray[freqIndex3] / 256;
                     
-                    // Combinar frequências para criar padrão de onda mais interessante
                     const combinedValue = (value1 + value2 + value3) / 3;
                     
                     let barHeight;
                     if (normalized > 0.05) {
-                        // Adicionar alguma aleatoriedade para um efeito mais orgânico
                         const randomFactor = 0.8 + Math.random() * 0.4;
                         barHeight = Math.min(0.05 + (combinedValue * 0.95 * randomFactor), 1);
                     } else {
                         barHeight = 0.05;
                     }
                     
-                    // Efeito de onda suave com seno
                     const waveEffect = Math.sin((index / barCount) * Math.PI * 2 + Date.now() * 0.01) * 0.1;
                     const finalHeight = Math.max(0.05, barHeight + waveEffect);
                     
                     bar.style.height = `${finalHeight * 100}%`;
                     bar.style.opacity = Math.max(0.4, finalHeight);
                     
-                    // Cor gradiente para o modo onda
                     const intensity = combinedValue;
-                    const hue = 120 + intensity * 40; // Verde para amarelo
+                    const hue = 120 + intensity * 40;
                     bar.style.backgroundColor = `hsl(${hue}, 100%, ${30 + intensity * 40}%)`;
                 });
                 
-                // Controlar animação da onda
                 if (normalized > 0.1) {
                     this.waveAnimation.style.opacity = '0.6';
                     this.waveAnimation.style.animationPlayState = 'running';
@@ -633,7 +931,6 @@
                     this.vuAnimationId = null;
                 }
                 
-                // Resetar barras do modo barras
                 const bars = this.vuBars.querySelectorAll('.vu-bar');
                 bars.forEach(bar => {
                     bar.style.height = '5px';
@@ -641,14 +938,12 @@
                     bar.style.backgroundColor = 'var(--primary)';
                 });
                 
-                // Resetar barras do modo onda
                 this.waveBars.forEach(bar => {
                     bar.style.height = '5px';
                     bar.style.opacity = '0.2';
                     bar.style.backgroundColor = 'var(--primary)';
                 });
                 
-                // Parar animação da onda
                 this.waveAnimation.style.opacity = '0.2';
                 this.waveAnimation.style.animationPlayState = 'paused';
             }
@@ -658,6 +953,7 @@
                     this.isPlaying = false;
                     this.playIcon.className = 'fas fa-play';
                     this.albumArt.classList.remove('rotating');
+                    this.albumArt.classList.add('paused');
                     this.stopVUMeter();
                 }
             }
@@ -690,19 +986,22 @@
                 try {
                     if (this.isPlaying) {
                         this.audio.pause();
-                        this.playIcon.className = 'fas fa-play';
-                        this.albumArt.classList.remove('rotating');
-                        this.stopVUMeter();
                     } else {
-                        await this.setupAudioContext();
+                        // Configurar AudioContext antes de tocar
+                        const audioContextReady = await this.setupAudioContext();
+                        if (!audioContextReady && this.isMobile) {
+                            alert('Toque em qualquer lugar da tela primeiro para ativar o áudio.');
+                            return;
+                        }
+                        
                         await this.audio.play();
-                        this.playIcon.className = 'fas fa-pause';
-                        this.albumArt.classList.add('rotating');
                         this.startVUMeter();
                     }
-                    this.isPlaying = !this.isPlaying;
                 } catch (error) {
-                    console.error('Erro:', error);
+                    console.error('Erro ao controlar reprodução:', error);
+                    if (this.isMobile && error.name === 'NotAllowedError') {
+                        alert('Permissão de áudio necessária. Toque em qualquer lugar da tela primeiro.');
+                    }
                 }
             }
 
@@ -712,10 +1011,10 @@
                 this.trackArtist.textContent = track.artist;
                 this.albumArt.src = track.cover;
                 
-                // Reset playback state
                 this.isPlaying = false;
                 this.playIcon.className = 'fas fa-play';
                 this.albumArt.classList.remove('rotating');
+                this.albumArt.classList.add('paused');
                 this.stopVUMeter();
             }
 
@@ -731,7 +1030,7 @@
             }
 
             updateProgress() {
-                if (!this.audio.duration) return;
+                if (!this.audio.duration || isNaN(this.audio.duration)) return;
                 const percent = (this.audio.currentTime / this.audio.duration) * 100;
                 this.progressFill.style.width = `${percent}%`;
                 this.currentTime.textContent = this.formatTime(this.audio.currentTime);
@@ -747,6 +1046,11 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             window.player = new WinampPlayer();
+            
+            // Adicionar mensagem para mobile
+            if (/iPad|iPhone|iPod|Android/.test(navigator.userAgent)) {
+                console.log('Modo mobile ativado. Toque na tela para ativar o áudio.');
+            }
         });
     </script>
 </body>
