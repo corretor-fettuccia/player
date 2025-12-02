@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winamp-Style Audio Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #00c853;
+            --dark: #1a1a1a;
+            --light: #e0e0e0;
+            --gray: #666;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--dark);
+            color: var(--light);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .container {
+            width: 380px;
+            background: #222;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+
+        .player-header {
+            background: #0d0d0d;
+            padding: 8px 12px;
+            border-bottom: 1px solid #333;
+            min-height: 50px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            color: var(--primary);
+            font-size: 1rem;
+        }
+
+        .track-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .track-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.1;
+        }
+
+        .track-artist {
+            font-size: 0.75rem;
+            color: var(--gray);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1;
+        }
+
+        .album-section {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: #0d0d0d;
+        }
+
+        .album-art {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary);
+            box-shadow: 0 0 20px rgba(0, 200, 83, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .album-art.rotating {
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .controls-section {
+            padding: 15px;
+        }
+
+        .progress-container {
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 5px;
+            background: #333;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-bottom: 3px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            border-radius: 3px;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--gray);
+        }
+
+        .main-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .control-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: #333;
+            color: var(--light);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn.active {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .play-btn {
+            width: 42px;
+            height: 42px;
+            background: var(--primary);
+            color: #000;
+        }
+
+        .vu-container {
+            height: 100px;
+            background: #0d0d0d;
+            border-radius: 5px;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #333;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .vu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .vu-label {
+            font-size: 0.7rem;
+            color: var(--gray);
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .vu-mode-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary);
+            font-size: 0.7rem;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+            transition: background 0.2s;
+        }
+
+        .vu-mode-btn:hover {
+            background: rgba(0, 200, 83, 0.1);
+        }
+
+        .vu-content {
+            height: calc(100% - 20px);
+            position: relative;
+        }
+
+        .vu-bars {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 100%;
+            gap: 1px;
+        }
+
+        .vu-bar {
+            flex: 1;
+            background: var(--primary);
+            border-radius: 1px 1px 0 0;
+            transition: height 0.1s ease;
+        }
+
+        .vu-wave-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .vu-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .wave-bar {
+            flex: 1;
+            background: var(--primary);
+            margin: 0 1px;
+            border-radius: 2px 2px 0 0;
+            min-height: 1px;
+        }
+
+        .wave-animation {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 20px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 200, 83, 0.4) 50%, 
+                transparent 100%);
+            opacity: 0.6;
+            animation: waveMove 3s linear infinite;
+        }
+
+        @keyframes waveMove {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0%); }
+        }
+
+        .vu-bars-mode .vu-bars {
+            display: flex;
+        }
+
+        .vu-bars-mode .vu-wave-container {
+            display: none;
+        }
+
+        .vu-wave-mode .vu-bars {
+            display: none;
+        }
+
+        .vu-wave-mode .vu-wave-container {
+            display: block;
+        }
+
+        .bottom-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .volume-slider {
+            flex: 1;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .volume-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 70%;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="player-header">
+            <div class="logo">
+                <i class="fas fa-music logo-icon"></i>
+                <div class="track-info">
+                    <div id="trackTitle" class="track-title">Winamp Player</div>
+                    <div id="trackArtist" class="track-artist">Clique em Play</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="album-section">
+            <img id="albumArt" class="album-art" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2300c853'/%3E%3Cstop offset='100%25' stop-color='%234caf50'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23a)'/%3E%3Cpath d='M100,60 A40,40 0 1,1 100,140 A40,40 0 1,1 100,60' fill='none' stroke='white' stroke-width='8'/%3E%3Ccircle cx='100' cy='100' r='15' fill='white'/%3E%3C/svg%3E" alt="Album Art">
+        </div>
+
+        <div class="controls-section">
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="time-display">
+                    <span id="currentTime">0:00</span>
+                    <span id="totalTime">0:00</span>
+                </div>
+            </div>
+
+            <div class="main-controls">
+                <button class="control-btn" id="prevBtn">
+                    <i class="fas fa-step-backward"></i>
+                </button>
+                <button class="control-btn" id="loopBtn" title="Loop">
+                    <i class="fas fa-redo" id="loopIcon"></i>
+                </button>
+                <button class="control-btn play-btn" id="playBtn">
+                    <i class="fas fa-play" id="playIcon"></i>
+                </button>
+                <button class="control-btn" id="nextBtn">
+                    <i class="fas fa-step-forward"></i>
+                </button>
+            </div>
+
+            <div class="vu-container" id="vuContainer">
+                <div class="vu-header">
+                    <div class="vu-label">VU Meter</div>
+                    <button class="vu-mode-btn" id="vuModeBtn" title="Alternar modo">
+                        <span id="vuModeText">Onda</span>
+                    </button>
+                </div>
+                <div class="vu-content" id="vuContent">
+                    <div class="vu-bars" id="vuBars"></div>
+                    <div class="vu-wave-container" id="vuWaveContainer">
+                        <div class="vu-wave" id="vuWave"></div>
+                        <div class="wave-animation" id="waveAnimation"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-controls">
+                <i class="fas fa-volume-up" style="font-size: 0.8rem;"></i>
+                <div class="volume-slider" id="volumeSlider">
+                    <div class="volume-fill" id="volumeFill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioElement"></audio>
+
+    <script>
+        class WinampPlayer {
+            constructor() {
+                this.audio = document.getElementById('audioElement');
+                this.trackTitle = document.getElementById('trackTitle');
+                this.trackArtist = document.getElementById('trackArtist');
+                this.albumArt = document.getElementById('albumArt');
+                this.playBtn = document.getElementById('playBtn');
+                this.playIcon = document.getElementById('playIcon');
+                this.loopBtn = document.getElementById('loopBtn');
+                this.loopIcon = document.getElementById('loopIcon');
+                this.progressBar = document.getElementById('progressBar');
+                this.progressFill = document.getElementById('progressFill');
+                this.currentTime = document.getElementById('currentTime');
+                this.totalTime = document.getElementById('totalTime');
+                this.volumeSlider = document.getElementById('volumeSlider');
+                this.volumeFill = document.getElementById('volumeFill');
+                this.vuContainer = document.getElementById('vuContainer');
+                this.vuContent = document.getElementById('vuContent');
+                this.vuBars = document.getElementById('vuBars');
+                this.vuWave = document.getElementById('vuWave');
+                this.vuWaveContainer = document.getElementById('vuWaveContainer');
+                this.vuModeBtn = document.getElementById('vuModeBtn');
+                this.vuModeText = document.getElementById('vuModeText');
+                this.waveAnimation = document.getElementById('waveAnimation');
+                
+                this.isPlaying = false;
+                this.isLooping = false;
+                this.vuMode = 'bars'; // 'bars' ou 'wave'
+                this.audio.volume = 0.7;
+                this.volumeFill.style.width = '70%';
+                this.audio.crossOrigin = "anonymous";
+                this.audioContext = null;
+                this.analyser = null;
+                this.dataArray = null;
+                this.source = null;
+                this.vuAnimationId = null;
+                this.waveBars = [];
+                
+                this.initVUMeter();
+                this.initEventListeners();
+                this.checkUrlParams();
+                this.setVUMode('bars'); // Começa com barras
+            }
+
+            initVUMeter() {
+                // Criar barras para o modo barras
+                for (let i = 0; i < 40; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'vu-bar';
+                    bar.style.height = '5px';
+                    this.vuBars.appendChild(bar);
+                }
+                
+                // Criar barras para o modo onda
+                for (let i = 0; i < 60; i++) {
+                    const waveBar = document.createElement('div');
+                    waveBar.className = 'wave-bar';
+                    waveBar.style.height = '5px';
+                    this.vuWave.appendChild(waveBar);
+                    this.waveBars.push(waveBar);
+                }
+            }
+
+            initEventListeners() {
+                this.audio.addEventListener('timeupdate', () => this.updateProgress());
+                this.audio.addEventListener('loadedmetadata', () => this.totalTime.textContent = this.formatTime(this.audio.duration));
+                this.audio.addEventListener('ended', () => this.handleTrackEnd());
+                
+                this.playBtn.addEventListener('click', () => this.togglePlay());
+                
+                this.loopBtn.addEventListener('click', () => {
+                    this.isLooping = !this.isLooping;
+                    this.loopBtn.classList.toggle('active', this.isLooping);
+                    this.audio.loop = this.isLooping;
+                });
+                
+                this.progressBar.addEventListener('click', (e) => {
+                    const rect = this.progressBar.getBoundingClientRect();
+                    const percent = (e.clientX - rect.left) / rect.width;
+                    this.audio.currentTime = percent * this.audio.duration;
+                });
+                
+                this.volumeSlider.addEventListener('click', (e) => {
+                    const rect = this.volumeSlider.getBoundingClientRect();
+                    const percent = (e.clientX - rect.left) / rect.width;
+                    this.audio.volume = percent;
+                    this.volumeFill.style.width = `${percent * 100}%`;
+                });
+                
+                // Alternar modo VU ao clicar no botão
+                this.vuModeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleVUMode();
+                });
+                
+                // Alternar modo VU ao clicar em qualquer lugar do container VU
+                this.vuContainer.addEventListener('click', () => {
+                    this.toggleVUMode();
+                });
+            }
+
+            setVUMode(mode) {
+                this.vuMode = mode;
+                this.vuContent.className = 'vu-content';
+                this.vuContent.classList.add(`vu-${mode}-mode`);
+                
+                // Atualizar texto do botão
+                if (mode === 'bars') {
+                    this.vuModeText.textContent = 'Onda';
+                    this.vuModeBtn.title = 'Mudar para modo Onda';
+                } else {
+                    this.vuModeText.textContent = 'Barras';
+                    this.vuModeBtn.title = 'Mudar para modo Barras';
+                }
+            }
+
+            toggleVUMode() {
+                if (this.vuMode === 'bars') {
+                    this.setVUMode('wave');
+                } else {
+                    this.setVUMode('bars');
+                }
+            }
+
+            async setupAudioContext() {
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioContext.createAnalyser();
+                    this.source = this.audioContext.createMediaElementSource(this.audio);
+                    
+                    this.analyser.fftSize = 256;
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    
+                    this.source.connect(this.analyser);
+                    this.analyser.connect(this.audioContext.destination);
+                }
+                
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+            }
+
+            startVUMeter() {
+                if (!this.analyser) return;
+                
+                const updateVU = () => {
+                    if (!this.isPlaying) return;
+                    
+                    this.analyser.getByteFrequencyData(this.dataArray);
+                    
+                    const average = this.dataArray.reduce((a, b) => a + b) / this.dataArray.length;
+                    const normalized = Math.min(average / 128, 1);
+                    
+                    if (this.vuMode === 'bars') {
+                        this.updateBarsMode(normalized);
+                    } else {
+                        this.updateWaveMode(normalized);
+                    }
+                    
+                    this.vuAnimationId = requestAnimationFrame(updateVU);
+                };
+                
+                this.vuAnimationId = requestAnimationFrame(updateVU);
+            }
+
+            updateBarsMode(normalized) {
+                const bars = this.vuBars.querySelectorAll('.vu-bar');
+                const barCount = bars.length;
+                
+                bars.forEach((bar, index) => {
+                    const frequencyIndex = Math.floor((index / barCount) * this.dataArray.length);
+                    const frequencyValue = this.dataArray[frequencyIndex] / 256;
+                    
+                    // Criar um efeito mais dinâmico
+                    let barHeight;
+                    if (normalized > 0.1) {
+                        barHeight = 0.1 + (frequencyValue * 0.9);
+                    } else {
+                        barHeight = 0.05;
+                    }
+                    
+                    bar.style.height = `${barHeight * 100}%`;
+                    bar.style.opacity = Math.max(0.3, barHeight);
+                    
+                    // Cor dinâmica baseada na intensidade
+                    const intensity = frequencyValue;
+                    const r = Math.floor(0 * intensity);
+                    const g = Math.floor(200 * intensity);
+                    const b = Math.floor(83 * intensity);
+                    bar.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+                });
+            }
+
+            updateWaveMode(normalized) {
+                // Atualizar onda com base nas frequências
+                const waveBars = this.waveBars;
+                const barCount = waveBars.length;
+                
+                waveBars.forEach((bar, index) => {
+                    // Usar múltiplas frequências para criar padrão de onda
+                    const freqIndex1 = Math.floor((index / barCount) * (this.dataArray.length / 2));
+                    const freqIndex2 = Math.floor(((index + barCount/3) / barCount) * (this.dataArray.length / 2));
+                    const freqIndex3 = Math.floor(((index + barCount*2/3) / barCount) * (this.dataArray.length / 2));
+                    
+                    const value1 = this.dataArray[freqIndex1] / 256;
+                    const value2 = this.dataArray[freqIndex2] / 256;
+                    const value3 = this.dataArray[freqIndex3] / 256;
+                    
+                    // Combinar frequências para criar padrão de onda mais interessante
+                    const combinedValue = (value1 + value2 + value3) / 3;
+                    
+                    let barHeight;
+                    if (normalized > 0.05) {
+                        // Adicionar alguma aleatoriedade para um efeito mais orgânico
+                        const randomFactor = 0.8 + Math.random() * 0.4;
+                        barHeight = Math.min(0.05 + (combinedValue * 0.95 * randomFactor), 1);
+                    } else {
+                        barHeight = 0.05;
+                    }
+                    
+                    // Efeito de onda suave com seno
+                    const waveEffect = Math.sin((index / barCount) * Math.PI * 2 + Date.now() * 0.01) * 0.1;
+                    const finalHeight = Math.max(0.05, barHeight + waveEffect);
+                    
+                    bar.style.height = `${finalHeight * 100}%`;
+                    bar.style.opacity = Math.max(0.4, finalHeight);
+                    
+                    // Cor gradiente para o modo onda
+                    const intensity = combinedValue;
+                    const hue = 120 + intensity * 40; // Verde para amarelo
+                    bar.style.backgroundColor = `hsl(${hue}, 100%, ${30 + intensity * 40}%)`;
+                });
+                
+                // Controlar animação da onda
+                if (normalized > 0.1) {
+                    this.waveAnimation.style.opacity = '0.6';
+                    this.waveAnimation.style.animationPlayState = 'running';
+                } else {
+                    this.waveAnimation.style.opacity = '0.2';
+                    this.waveAnimation.style.animationPlayState = 'paused';
+                }
+            }
+
+            stopVUMeter() {
+                if (this.vuAnimationId) {
+                    cancelAnimationFrame(this.vuAnimationId);
+                    this.vuAnimationId = null;
+                }
+                
+                // Resetar barras do modo barras
+                const bars = this.vuBars.querySelectorAll('.vu-bar');
+                bars.forEach(bar => {
+                    bar.style.height = '5px';
+                    bar.style.opacity = '0.2';
+                    bar.style.backgroundColor = 'var(--primary)';
+                });
+                
+                // Resetar barras do modo onda
+                this.waveBars.forEach(bar => {
+                    bar.style.height = '5px';
+                    bar.style.opacity = '0.2';
+                    bar.style.backgroundColor = 'var(--primary)';
+                });
+                
+                // Parar animação da onda
+                this.waveAnimation.style.opacity = '0.2';
+                this.waveAnimation.style.animationPlayState = 'paused';
+            }
+
+            handleTrackEnd() {
+                if (!this.isLooping) {
+                    this.isPlaying = false;
+                    this.playIcon.className = 'fas fa-play';
+                    this.albumArt.classList.remove('rotating');
+                    this.stopVUMeter();
+                }
+            }
+
+            checkUrlParams() {
+                const params = new URLSearchParams(window.location.search);
+                const audioUrl = params.get('audio');
+                const track = params.get('track');
+                const artist = params.get('artist');
+                const cover = params.get('cover');
+                
+                if (audioUrl) {
+                    const trackData = {
+                        url: decodeURIComponent(audioUrl),
+                        title: track ? decodeURIComponent(track) : 'Música',
+                        artist: artist ? decodeURIComponent(artist) : 'Artista',
+                        cover: cover ? decodeURIComponent(cover) : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%2300c853"/><circle cx="100" cy="100" r="50" fill="white"/></svg>'
+                    };
+                    
+                    this.loadTrack(trackData);
+                }
+            }
+
+            async togglePlay() {
+                if (!this.audio.src) {
+                    this.loadDemoTrack();
+                    return;
+                }
+
+                try {
+                    if (this.isPlaying) {
+                        this.audio.pause();
+                        this.playIcon.className = 'fas fa-play';
+                        this.albumArt.classList.remove('rotating');
+                        this.stopVUMeter();
+                    } else {
+                        await this.setupAudioContext();
+                        await this.audio.play();
+                        this.playIcon.className = 'fas fa-pause';
+                        this.albumArt.classList.add('rotating');
+                        this.startVUMeter();
+                    }
+                    this.isPlaying = !this.isPlaying;
+                } catch (error) {
+                    console.error('Erro:', error);
+                }
+            }
+
+            loadTrack(track) {
+                this.audio.src = track.url;
+                this.trackTitle.textContent = track.title;
+                this.trackArtist.textContent = track.artist;
+                this.albumArt.src = track.cover;
+                
+                // Reset playback state
+                this.isPlaying = false;
+                this.playIcon.className = 'fas fa-play';
+                this.albumArt.classList.remove('rotating');
+                this.stopVUMeter();
+            }
+
+            loadDemoTrack() {
+                const demoUrl = 'https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3';
+                const track = {
+                    url: demoUrl,
+                    title: 'Tech House Vibes',
+                    artist: 'Mixkit',
+                    cover: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%2300c853"/><circle cx="100" cy="100" r="50" fill="white"/></svg>'
+                };
+                this.loadTrack(track);
+            }
+
+            updateProgress() {
+                if (!this.audio.duration) return;
+                const percent = (this.audio.currentTime / this.audio.duration) * 100;
+                this.progressFill.style.width = `${percent}%`;
+                this.currentTime.textContent = this.formatTime(this.audio.currentTime);
+            }
+
+            formatTime(seconds) {
+                if (isNaN(seconds)) return '0:00';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.player = new WinampPlayer();
+        });
+    </script>
+</body>
+</html>
