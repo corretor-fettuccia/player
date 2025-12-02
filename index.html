@@ -526,6 +526,64 @@
             opacity: 1;
         }
 
+        /* Instruções para iOS */
+        .ios-instructions {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .ios-instructions.show {
+            display: flex;
+        }
+
+        .ios-instructions-content {
+            background: #222;
+            border-radius: 10px;
+            padding: 25px;
+            max-width: 400px;
+            border: 2px solid var(--primary);
+        }
+
+        .ios-instructions h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .ios-instructions ol {
+            text-align: left;
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+
+        .ios-instructions li {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .ios-instructions-close {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+        }
+
         /* Estilo para dispositivos móveis */
         @media (max-width: 480px) {
             .container {
@@ -672,7 +730,26 @@
     <!-- Status de tela bloqueada -->
     <div class="background-status" id="backgroundStatus">Tocando em segundo plano</div>
 
+    <!-- Instruções para iOS -->
+    <div class="ios-instructions" id="iosInstructions">
+        <div class="ios-instructions-content">
+            <h3>📱 Para iPhone/iPad</h3>
+            <p>Para ouvir música com a tela bloqueada:</p>
+            <ol>
+                <li>Toque em <strong>Compartilhar</strong> no Safari</li>
+                <li>Desça e selecione <strong>"Adicionar à Tela de Início"</strong></li>
+                <li>Abra o player pela tela de início</li>
+                <li>Agora a música continuará com a tela bloqueada!</li>
+            </ol>
+            <p><em>Esta é uma limitação do Safari no iOS. A solução é instalar o player como app.</em></p>
+            <button class="ios-instructions-close" id="iosInstructionsClose">Entendi</button>
+        </div>
+    </div>
+
     <audio id="audioElement"></audio>
+
+    <!-- Áudio silencioso para manter contexto ativo -->
+    <audio id="silentAudio" loop style="display: none;"></audio>
 
     <script>
         class WinampPlayer {
@@ -711,6 +788,11 @@
                 this.toast = document.getElementById('toast');
                 this.backgroundStatus = document.getElementById('backgroundStatus');
                 
+                // Elementos para iOS
+                this.iosInstructions = document.getElementById('iosInstructions');
+                this.iosInstructionsClose = document.getElementById('iosInstructionsClose');
+                this.silentAudioElement = document.getElementById('silentAudio');
+                
                 this.isPlaying = false;
                 this.isLooping = false;
                 this.vuMode = 'bars';
@@ -718,9 +800,13 @@
                 this.volumeFill.style.width = '70%';
                 this.audio.crossOrigin = "anonymous";
                 
-                this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                // Detectar dispositivo
+                this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
                 this.isAndroid = /Android/.test(navigator.userAgent);
                 this.isMobile = this.isIOS || this.isAndroid;
+                this.isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+                this.isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+                
                 this.userInteracted = false;
                 
                 // Para VU meter com captura real
@@ -733,9 +819,11 @@
                 // Para funcionamento em segundo plano
                 this.wakeLock = null;
                 this.keepAliveInterval = null;
-                this.backgroundTimer = null;
+                this.backgroundCheckInterval = null;
                 this.isInBackground = false;
-                this.silentAudio = null;
+                this.backgroundAudioContext = null;
+                this.backgroundAudioSource = null;
+                this.backgroundAudioPlaying = false;
                 
                 // Buffers de dados
                 this.frequencyData = null;
@@ -746,10 +834,11 @@
                 // Configurações
                 this.smoothingTimeConstant = 0.8;
                 this.lastUpdateTime = 0;
-                this.updateInterval = 50; // 20 FPS para melhor performance
+                this.updateInterval = 50;
                 this.historyBuffer = [];
                 this.historySize = 3;
                 
+                // Configurar áudio para segundo plano
                 this.setupBackgroundAudio();
                 this.initVUMeter();
                 this.initEventListeners();
@@ -759,6 +848,13 @@
                 this.initMobileSupport();
                 this.initShareFunctionality();
                 this.initBackgroundSupport();
+                
+                // Mostrar instruções para iOS se for Safari e não for standalone
+                if (this.isIOS && this.isSafari && !this.isStandalone) {
+                    setTimeout(() => {
+                        this.showIOSInstructions();
+                    }, 3000);
+                }
             }
 
             setupBackgroundAudio() {
@@ -769,39 +865,82 @@
                 this.audio.preload = 'auto';
                 this.audio.setAttribute('loop', 'false');
                 
-                // Importante: manter metadata para iOS
-                this.audio.addEventListener('loadedmetadata', () => {
-                    this.audio.muted = false;
-                });
+                // Configurar áudio silencioso
+                this.silentAudioElement.src = this.createSilentAudioSrc();
+                this.silentAudioElement.loop = true;
+                this.silentAudioElement.volume = 0.001; // Quase zero, mas não zero
+                this.silentAudioElement.preload = 'auto';
+                this.silentAudioElement.setAttribute('playsinline', 'true');
+                this.silentAudioElement.setAttribute('webkit-playsinline', 'true');
                 
-                // Para iOS, tentar evitar que o sistema pause o áudio
+                // Para iOS, adicionar tratamento especial
                 if (this.isIOS) {
-                    this.setupIOSBackground();
+                    this.setupIOSAudioHandling();
                 }
             }
 
-            setupIOSBackground() {
+            createSilentAudioSrc() {
+                // Criar um áudio WAV silencioso (1 segundo de silêncio)
+                const sampleRate = 44100;
+                const numberOfChannels = 2;
+                const length = sampleRate * numberOfChannels;
+                
+                // Criar buffer de áudio
+                const buffer = new ArrayBuffer(44 + length * 2);
+                const view = new DataView(buffer);
+                
+                // Escrever cabeçalho WAV
+                this.writeString(view, 0, 'RIFF');
+                view.setUint32(4, 36 + length * 2, true);
+                this.writeString(view, 8, 'WAVE');
+                this.writeString(view, 12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);
+                view.setUint16(22, numberOfChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * numberOfChannels * 2, true);
+                view.setUint16(32, numberOfChannels * 2, true);
+                view.setUint16(34, 16, true);
+                this.writeString(view, 36, 'data');
+                view.setUint32(40, length * 2, true);
+                
+                // Escrever dados silenciosos (valores zero)
+                for (let i = 0; i < length; i++) {
+                    view.setInt16(44 + i * 2, 0, true);
+                }
+                
+                // Converter para base64
+                const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+                return 'data:audio/wav;base64,' + base64;
+            }
+
+            writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            setupIOSAudioHandling() {
                 // Técnicas específicas para iOS
+                
+                // 1. Interceptar eventos de play/pause
                 const originalPlay = this.audio.play.bind(this.audio);
                 const originalPause = this.audio.pause.bind(this.audio);
                 
-                // Interceptar play/pause para melhor controle
                 this.audio.play = async () => {
                     try {
-                        // Garantir que o contexto de áudio esteja ativo
-                        if (this.audioContext && this.audioContext.state === 'suspended') {
-                            await this.audioContext.resume();
+                        // Primeiro, iniciar áudio silencioso para manter contexto
+                        if (!this.backgroundAudioPlaying) {
+                            await this.startSilentAudio();
                         }
                         
-                        // Tocar silenciosamente primeiro para "destravar"
-                        this.audio.muted = true;
-                        await originalPlay();
-                        this.audio.muted = false;
+                        // Depois, tocar o áudio real
+                        const result = await originalPlay();
                         
-                        // Para iOS, manter um timer para verificar se o áudio ainda está tocando
-                        this.startIOSKeepAlive();
+                        // Iniciar verificações de background
+                        this.startBackgroundChecks();
                         
-                        return Promise.resolve();
+                        return result;
                     } catch (error) {
                         console.error('Erro ao tocar no iOS:', error);
                         throw error;
@@ -809,65 +948,134 @@
                 };
                 
                 this.audio.pause = () => {
-                    this.stopIOSKeepAlive();
+                    // Parar verificações de background
+                    this.stopBackgroundChecks();
+                    
+                    // Parar áudio silencioso
+                    this.stopSilentAudio();
+                    
                     return originalPause();
                 };
+                
+                // 2. Adicionar listener para quando o áudio é pausado pelo sistema
+                this.audio.addEventListener('pause', (e) => {
+                    // Se foi pausado pelo sistema e estamos tocando
+                    if (this.isPlaying && document.hidden) {
+                        console.log('iOS pausou o áudio, tentando retomar...');
+                        setTimeout(() => {
+                            if (this.isPlaying && this.audio.paused) {
+                                this.audio.play().catch(err => {
+                                    console.log('Não foi possível retomar:', err);
+                                });
+                            }
+                        }, 100);
+                    }
+                });
+                
+                // 3. Adicionar listener para loadedmetadata
+                this.audio.addEventListener('loadedmetadata', () => {
+                    this.audio.muted = false;
+                });
             }
 
-            startIOSKeepAlive() {
-                if (!this.isIOS || this.backgroundTimer) return;
+            async startSilentAudio() {
+                try {
+                    // Tocar áudio silencioso para manter contexto de áudio ativo
+                    await this.silentAudioElement.play();
+                    this.backgroundAudioPlaying = true;
+                    console.log('Áudio silencioso iniciado para manter contexto');
+                } catch (error) {
+                    console.log('Não foi possível tocar áudio silencioso:', error);
+                }
+            }
+
+            stopSilentAudio() {
+                try {
+                    this.silentAudioElement.pause();
+                    this.silentAudioElement.currentTime = 0;
+                    this.backgroundAudioPlaying = false;
+                    console.log('Áudio silencioso parado');
+                } catch (error) {
+                    console.log('Erro ao parar áudio silencioso:', error);
+                }
+            }
+
+            startBackgroundChecks() {
+                // Verificar periodicamente se o áudio ainda está tocando
+                if (this.backgroundCheckInterval) {
+                    clearInterval(this.backgroundCheckInterval);
+                }
                 
-                // Timer para verificar periodicamente se o áudio ainda está tocando
-                this.backgroundTimer = setInterval(() => {
+                this.backgroundCheckInterval = setInterval(() => {
+                    if (this.isPlaying && this.audio.paused && document.hidden) {
+                        console.log('Áudio pausado em background, tentando retomar...');
+                        this.audio.play().catch(err => {
+                            console.log('Erro ao retomar:', err);
+                            
+                            // Tentar técnica alternativa
+                            this.tryAlternativeResume();
+                        });
+                    }
+                }, 2000); // Verificar a cada 2 segundos
+            }
+
+            stopBackgroundChecks() {
+                if (this.backgroundCheckInterval) {
+                    clearInterval(this.backgroundCheckInterval);
+                    this.backgroundCheckInterval = null;
+                }
+            }
+
+            tryAlternativeResume() {
+                // Técnica alternativa para retomar áudio no iOS
+                if (!this.isIOS) return;
+                
+                // 1. Tentar tocar áudio silencioso primeiro
+                this.silentAudioElement.play().catch(() => {});
+                
+                // 2. Depois de um delay, tentar tocar o áudio real
+                setTimeout(() => {
                     if (this.isPlaying && this.audio.paused) {
-                        console.log('iOS tentou pausar, retomando...');
-                        this.audio.play().catch(e => {
-                            console.log('Erro ao retomar:', e);
-                        });
+                        this.audio.currentTime = this.audio.currentTime; // Forçar recarga
+                        this.audio.play().catch(() => {});
                     }
-                }, 1000); // Verificar a cada segundo
+                }, 100);
             }
 
-            stopIOSKeepAlive() {
-                if (this.backgroundTimer) {
-                    clearInterval(this.backgroundTimer);
-                    this.backgroundTimer = null;
-                }
-            }
-
-            async initBackgroundSupport() {
-                // Tenta adquirir Wake Lock para Android (evita que o dispositivo entre em sleep)
+            initBackgroundSupport() {
+                // Configurar Wake Lock para Android
                 if ('wakeLock' in navigator && this.isAndroid) {
-                    try {
-                        this.wakeLock = await navigator.wakeLock.request('screen');
-                        console.log('Wake Lock adquirido');
-                        
-                        // Lidar com a liberação do Wake Lock
-                        this.wakeLock.addEventListener('release', () => {
-                            console.log('Wake Lock liberado');
-                            this.wakeLock = null;
-                        });
-                    } catch (err) {
-                        console.log('Wake Lock não disponível:', err);
-                    }
+                    this.setupWakeLock();
                 }
                 
-                // Cria um áudio silencioso para manter o contexto ativo
-                this.createSilentAudio();
-                
-                // Monitorar visibilidade da página
+                // Configurar handlers de visibilidade
                 this.setupVisibilityHandlers();
             }
 
-            createSilentAudio() {
-                // Cria um elemento de áudio silencioso para manter o contexto ativo
-                this.silentAudio = new Audio();
-                this.silentAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
-                this.silentAudio.loop = true;
-                this.silentAudio.volume = 0;
-                this.silentAudio.preload = 'auto';
-                this.silentAudio.setAttribute('playsinline', 'true');
-                this.silentAudio.setAttribute('webkit-playsinline', 'true');
+            async setupWakeLock() {
+                try {
+                    this.wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock adquirido para Android');
+                    
+                    this.wakeLock.addEventListener('release', () => {
+                        console.log('Wake Lock liberado');
+                        this.wakeLock = null;
+                    });
+                    
+                    // Re-aquirir Wake Lock quando a página voltar ao foreground
+                    document.addEventListener('visibilitychange', async () => {
+                        if (document.visibilityState === 'visible' && this.isPlaying && !this.wakeLock) {
+                            try {
+                                this.wakeLock = await navigator.wakeLock.request('screen');
+                                console.log('Wake Lock re-adquirido');
+                            } catch (err) {
+                                console.log('Não foi possível re-adquirir Wake Lock:', err);
+                            }
+                        }
+                    });
+                } catch (err) {
+                    console.log('Wake Lock não disponível:', err);
+                }
             }
 
             setupVisibilityHandlers() {
@@ -882,21 +1090,13 @@
                 
                 // Eventos específicos para iOS
                 if (this.isIOS) {
-                    window.addEventListener('pagehide', this.handleIOSBackground.bind(this));
-                    window.addEventListener('pageshow', this.handleIOSForeground.bind(this));
-                    
-                    // Tentar prevenir o comportamento padrão de pause
-                    document.addEventListener('webkitvisibilitychange', () => {
-                        if (document.webkitHidden) {
-                            this.handleIOSBackground();
-                        }
+                    window.addEventListener('pagehide', () => {
+                        this.handleIOSBackground();
                     });
-                }
-                
-                // Para Android, monitorar eventos de pause/resume
-                if (this.isAndroid) {
-                    document.addEventListener('pause', this.handleAndroidPause.bind(this));
-                    document.addEventListener('resume', this.handleAndroidResume.bind(this));
+                    
+                    window.addEventListener('pageshow', () => {
+                        this.handleIOSForeground();
+                    });
                 }
             }
 
@@ -910,14 +1110,14 @@
                 // Pausar animações visuais para economizar bateria
                 this.pauseVisualEffects();
                 
-                // Para Android, tentar manter o Wake Lock
-                if (this.isAndroid && this.isPlaying) {
-                    this.keepAliveInBackground();
+                // Para Android, manter Wake Lock se já tiver
+                if (this.isAndroid && this.isPlaying && this.wakeLock) {
+                    console.log('Mantendo Wake Lock ativo');
                 }
                 
-                // Para iOS, tentar manter o áudio ativo
-                if (this.isIOS && this.isPlaying) {
-                    this.keepIOSAudioAlive();
+                // Para iOS, garantir que o áudio silencioso esteja tocando
+                if (this.isIOS && this.isPlaying && !this.backgroundAudioPlaying) {
+                    this.startSilentAudio().catch(() => {});
                 }
             }
 
@@ -944,101 +1144,69 @@
             }
 
             handleIOSBackground() {
-                console.log('iOS entrando em background');
-                if (this.isPlaying) {
-                    // Tocar áudio silencioso para manter o contexto ativo
-                    if (this.silentAudio) {
-                        this.silentAudio.play().catch(() => {});
-                    }
-                    
-                    // Técnica: criar um contexto de áudio e tocar silenciosamente
-                    this.playSilentAudioForIOS();
-                }
+                console.log('iOS: Entrando em background');
+                
+                // Técnica: criar e tocar áudio silencioso via Web Audio API
+                this.playWebAudioSilent().catch(() => {});
             }
 
             handleIOSForeground() {
-                console.log('iOS saindo do background');
+                console.log('iOS: Saindo do background');
+                
+                // Tentar retomar o áudio se necessário
                 if (this.isPlaying && this.audio.paused) {
                     setTimeout(() => {
                         this.audio.play().catch(() => {});
                     }, 500);
                 }
-                
-                // Parar áudio silencioso
-                if (this.silentAudio) {
-                    this.silentAudio.pause();
-                }
             }
 
-            async playSilentAudioForIOS() {
+            async playWebAudioSilent() {
+                // Técnica alternativa usando Web Audio API
                 try {
-                    // Criar um contexto de áudio e tocar silenciosamente
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    const audioContext = new AudioContext();
-                    const buffer = audioContext.createBuffer(1, 1, 22050);
-                    const source = audioContext.createBufferSource();
+                    if (!this.backgroundAudioContext) {
+                        this.backgroundAudioContext = new AudioContext();
+                    }
+                    
+                    // Criar buffer de áudio silencioso
+                    const buffer = this.backgroundAudioContext.createBuffer(1, 1, 22050);
+                    const source = this.backgroundAudioContext.createBufferSource();
                     source.buffer = buffer;
-                    source.connect(audioContext.destination);
+                    
+                    // Conectar ao destino
+                    source.connect(this.backgroundAudioContext.destination);
+                    
+                    // Tocar
                     source.start(0);
                     
-                    // Manter o contexto ativo
-                    setTimeout(() => {
-                        audioContext.suspend();
-                    }, 100);
+                    // Guardar referência
+                    this.backgroundAudioSource = source;
+                    
                 } catch (error) {
-                    console.log('Erro ao tocar áudio silencioso iOS:', error);
-                }
-            }
-
-            handleAndroidPause() {
-                console.log('Android pausando');
-                if (this.isPlaying) {
-                    // Tentar manter o áudio tocando
-                    this.keepAliveInBackground();
-                }
-            }
-
-            handleAndroidResume() {
-                console.log('Android retomando');
-                if (this.isPlaying && this.audio.paused) {
-                    setTimeout(() => {
-                        this.audio.play().catch(() => {});
-                    }, 200);
-                }
-            }
-
-            keepAliveInBackground() {
-                // Para Android, tentar manter o áudio ativo
-                if (this.keepAliveInterval) {
-                    clearInterval(this.keepAliveInterval);
-                }
-                
-                this.keepAliveInterval = setInterval(() => {
-                    if (this.isPlaying && this.audio.paused) {
-                        console.log('Tentando manter áudio ativo em background...');
-                        this.audio.play().catch(() => {});
-                    }
-                }, 30000); // Verificar a cada 30 segundos
-            }
-
-            keepIOSAudioAlive() {
-                // Para iOS, técnica para manter o áudio ativo
-                if (this.isPlaying) {
-                    // Tocar áudio silencioso periodicamente
-                    setInterval(() => {
-                        if (this.isPlaying && document.hidden) {
-                            this.playSilentAudioForIOS();
-                        }
-                    }, 25000); // A cada 25 segundos
+                    console.log('Erro ao tocar áudio silencioso Web Audio:', error);
                 }
             }
 
             showBackgroundStatus() {
                 this.backgroundStatus.classList.add('show');
+                
+                // Esconder após 3 segundos
+                setTimeout(() => {
+                    this.backgroundStatus.classList.remove('show');
+                }, 3000);
             }
 
             hideBackgroundStatus() {
                 this.backgroundStatus.classList.remove('show');
+            }
+
+            showIOSInstructions() {
+                this.iosInstructions.classList.add('show');
+            }
+
+            hideIOSInstructions() {
+                this.iosInstructions.classList.remove('show');
             }
 
             initMobileSupport() {
@@ -1047,34 +1215,53 @@
                         this.userInteracted = true;
                         console.log('Áudio ativado por interação do usuário');
                         
+                        // Para iOS, destravar áudio
                         if (this.isIOS) {
-                            this.unlockAudioForIOS();
+                            this.unlockIOSAudio();
                         }
                         
+                        // Remover listeners
                         document.removeEventListener('touchstart', activateAudio);
                         document.removeEventListener('click', activateAudio);
                     }
                 };
 
+                // Adicionar listeners para interação
                 document.addEventListener('touchstart', activateAudio, { passive: true });
                 document.addEventListener('click', activateAudio, { passive: true });
+                
+                // Para iOS, também tentar destravar no primeiro play
+                this.playBtn.addEventListener('click', () => {
+                    if (this.isIOS && !this.userInteracted) {
+                        this.unlockIOSAudio();
+                    }
+                });
             }
 
-            async unlockAudioForIOS() {
+            unlockIOSAudio() {
+                // Técnica para destravar áudio no iOS
                 try {
+                    // Criar e tocar áudio silencioso
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
                     const audioContext = new AudioContext();
+                    
+                    // Criar buffer vazio
                     const buffer = audioContext.createBuffer(1, 1, 22050);
                     const source = audioContext.createBufferSource();
                     source.buffer = buffer;
                     source.connect(audioContext.destination);
+                    
+                    // Tocar
                     source.start(0);
                     
+                    // Suspender após tocar
                     setTimeout(() => {
                         audioContext.suspend();
                     }, 100);
                     
                     console.log('Áudio destravado para iOS');
+                    this.userInteracted = true;
+                    
                 } catch (error) {
                     console.log('Erro ao destravar áudio iOS:', error);
                 }
@@ -1117,7 +1304,7 @@
                     // Analisador para espectro de frequência
                     this.analyser = this.audioContext.createAnalyser();
                     this.analyser.smoothingTimeConstant = this.smoothingTimeConstant;
-                    this.analyser.fftSize = 2048; // Maior FFT para melhor resolução
+                    this.analyser.fftSize = 2048;
                     
                     // Analisador para forma de onda (domínio do tempo)
                     this.analyserTime = this.audioContext.createAnalyser();
@@ -1138,8 +1325,6 @@
                     this.timeDomainData = new Uint8Array(this.analyserTime.frequencyBinCount);
                     
                     console.log('AudioContext inicializado com sucesso');
-                    console.log('FFT Size:', this.analyser.fftSize);
-                    console.log('Frequency Bins:', this.analyser.frequencyBinCount);
                     
                 } catch (error) {
                     console.error('Erro ao inicializar AudioContext:', error);
@@ -1156,19 +1341,6 @@
                     }
                 });
                 this.audio.addEventListener('ended', () => this.handleTrackEnd());
-                
-                // Interceptar eventos de pause para melhor controle em background
-                this.audio.addEventListener('pause', (e) => {
-                    // Se foi pausado pelo sistema e ainda queremos tocar
-                    if (this.isPlaying && this.isInBackground) {
-                        console.log('Áudio pausado pelo sistema em background, tentando retomar...');
-                        setTimeout(() => {
-                            if (this.isPlaying) {
-                                this.audio.play().catch(() => {});
-                            }
-                        }, 100);
-                    }
-                });
                 
                 this.playBtn.addEventListener('click', () => this.togglePlay());
                 
@@ -1202,6 +1374,11 @@
                 
                 this.vuContainer.addEventListener('click', () => {
                     this.toggleVUMode();
+                });
+                
+                // Fechar instruções iOS
+                this.iosInstructionsClose.addEventListener('click', () => {
+                    this.hideIOSInstructions();
                 });
             }
 
@@ -1360,6 +1537,7 @@
 
                 try {
                     if (this.isPlaying) {
+                        // Pausar reprodução
                         this.audio.pause();
                         this.isPlaying = false;
                         this.playIcon.className = 'fas fa-play';
@@ -1367,21 +1545,21 @@
                         this.albumArt.classList.add('paused');
                         this.stopVUMeter();
                         
-                        // Limpar timers de background
-                        this.stopIOSKeepAlive();
-                        if (this.keepAliveInterval) {
-                            clearInterval(this.keepAliveInterval);
-                            this.keepAliveInterval = null;
-                        }
+                        // Limpar recursos de background
+                        this.stopBackgroundChecks();
+                        this.stopSilentAudio();
                         
-                        // Liberar Wake Lock
+                        // Liberar Wake Lock se existir
                         if (this.wakeLock) {
                             await this.wakeLock.release();
                             this.wakeLock = null;
                         }
+                        
                     } else {
+                        // Iniciar reprodução
                         this.audio.muted = false;
                         
+                        // Para iOS, recarregar se necessário
                         if (this.isIOS) {
                             this.audio.load();
                         }
@@ -1391,7 +1569,7 @@
                             await this.audioContext.resume();
                         }
                         
-                        // Tentar adquirir Wake Lock para Android
+                        // Adquirir Wake Lock para Android
                         if (this.isAndroid && 'wakeLock' in navigator && !this.wakeLock) {
                             try {
                                 this.wakeLock = await navigator.wakeLock.request('screen');
@@ -1400,6 +1578,7 @@
                             }
                         }
                         
+                        // Tocar áudio
                         await this.audio.play();
                         this.isPlaying = true;
                         this.playIcon.className = 'fas fa-pause';
@@ -1412,6 +1591,9 @@
                     
                     if (error.name === 'NotAllowedError') {
                         alert('Permissão de áudio necessária. Toque em qualquer lugar da tela primeiro.');
+                    } else if (this.isIOS) {
+                        // Para iOS, mostrar instruções específicas
+                        this.showIOSInstructions();
                     }
                 }
             }
@@ -1436,7 +1618,7 @@
                                 this.updateWaveMode();
                             }
                         } else {
-                            // Fallback para simulação se AudioContext não estiver pronto
+                            // Fallback para simulação
                             if (this.vuMode === 'bars') {
                                 this.updateBarsWithSimulation();
                             } else {
@@ -1689,12 +1871,9 @@
                     this.albumArt.classList.add('paused');
                     this.stopVUMeter();
                     
-                    // Limpar timers de background
-                    this.stopIOSKeepAlive();
-                    if (this.keepAliveInterval) {
-                        clearInterval(this.keepAliveInterval);
-                        this.keepAliveInterval = null;
-                    }
+                    // Limpar recursos de background
+                    this.stopBackgroundChecks();
+                    this.stopSilentAudio();
                     
                     // Liberar Wake Lock
                     if (this.wakeLock) {
