@@ -506,6 +506,26 @@
             opacity: 1;
         }
 
+        /* Status de tela bloqueada */
+        .background-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: var(--primary);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.7rem;
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .background-status.show {
+            opacity: 1;
+        }
+
         /* Estilo para dispositivos móveis */
         @media (max-width: 480px) {
             .container {
@@ -649,6 +669,9 @@
     <!-- Toast de notificação -->
     <div class="toast" id="toast"></div>
 
+    <!-- Status de tela bloqueada -->
+    <div class="background-status" id="backgroundStatus">Tocando em segundo plano</div>
+
     <audio id="audioElement"></audio>
 
     <script>
@@ -686,6 +709,7 @@
                 this.telegramShareBtn = document.getElementById('telegramShareBtn');
                 this.twitterShareBtn = document.getElementById('twitterShareBtn');
                 this.toast = document.getElementById('toast');
+                this.backgroundStatus = document.getElementById('backgroundStatus');
                 
                 this.isPlaying = false;
                 this.isLooping = false;
@@ -705,6 +729,13 @@
                 this.analyserTime = null;
                 this.source = null;
                 this.vuAnimationId = null;
+                
+                // Para funcionamento em segundo plano
+                this.wakeLock = null;
+                this.keepAliveInterval = null;
+                this.backgroundTimer = null;
+                this.isInBackground = false;
+                this.silentAudio = null;
                 
                 // Buffers de dados
                 this.frequencyData = null;
@@ -727,25 +758,294 @@
                 
                 this.initMobileSupport();
                 this.initShareFunctionality();
+                this.initBackgroundSupport();
             }
 
             setupBackgroundAudio() {
+                // Configurações ESSENCIAIS para áudio em segundo plano
                 this.audio.setAttribute('playsinline', 'true');
                 this.audio.setAttribute('webkit-playsinline', 'true');
                 this.audio.setAttribute('x-webkit-airplay', 'allow');
                 this.audio.preload = 'auto';
+                this.audio.setAttribute('loop', 'false');
                 
+                // Importante: manter metadata para iOS
+                this.audio.addEventListener('loadedmetadata', () => {
+                    this.audio.muted = false;
+                });
+                
+                // Para iOS, tentar evitar que o sistema pause o áudio
                 if (this.isIOS) {
-                    this.audio.addEventListener('loadedmetadata', () => {
+                    this.setupIOSBackground();
+                }
+            }
+
+            setupIOSBackground() {
+                // Técnicas específicas para iOS
+                const originalPlay = this.audio.play.bind(this.audio);
+                const originalPause = this.audio.pause.bind(this.audio);
+                
+                // Interceptar play/pause para melhor controle
+                this.audio.play = async () => {
+                    try {
+                        // Garantir que o contexto de áudio esteja ativo
+                        if (this.audioContext && this.audioContext.state === 'suspended') {
+                            await this.audioContext.resume();
+                        }
+                        
+                        // Tocar silenciosamente primeiro para "destravar"
+                        this.audio.muted = true;
+                        await originalPlay();
                         this.audio.muted = false;
+                        
+                        // Para iOS, manter um timer para verificar se o áudio ainda está tocando
+                        this.startIOSKeepAlive();
+                        
+                        return Promise.resolve();
+                    } catch (error) {
+                        console.error('Erro ao tocar no iOS:', error);
+                        throw error;
+                    }
+                };
+                
+                this.audio.pause = () => {
+                    this.stopIOSKeepAlive();
+                    return originalPause();
+                };
+            }
+
+            startIOSKeepAlive() {
+                if (!this.isIOS || this.backgroundTimer) return;
+                
+                // Timer para verificar periodicamente se o áudio ainda está tocando
+                this.backgroundTimer = setInterval(() => {
+                    if (this.isPlaying && this.audio.paused) {
+                        console.log('iOS tentou pausar, retomando...');
+                        this.audio.play().catch(e => {
+                            console.log('Erro ao retomar:', e);
+                        });
+                    }
+                }, 1000); // Verificar a cada segundo
+            }
+
+            stopIOSKeepAlive() {
+                if (this.backgroundTimer) {
+                    clearInterval(this.backgroundTimer);
+                    this.backgroundTimer = null;
+                }
+            }
+
+            async initBackgroundSupport() {
+                // Tenta adquirir Wake Lock para Android (evita que o dispositivo entre em sleep)
+                if ('wakeLock' in navigator && this.isAndroid) {
+                    try {
+                        this.wakeLock = await navigator.wakeLock.request('screen');
+                        console.log('Wake Lock adquirido');
+                        
+                        // Lidar com a liberação do Wake Lock
+                        this.wakeLock.addEventListener('release', () => {
+                            console.log('Wake Lock liberado');
+                            this.wakeLock = null;
+                        });
+                    } catch (err) {
+                        console.log('Wake Lock não disponível:', err);
+                    }
+                }
+                
+                // Cria um áudio silencioso para manter o contexto ativo
+                this.createSilentAudio();
+                
+                // Monitorar visibilidade da página
+                this.setupVisibilityHandlers();
+            }
+
+            createSilentAudio() {
+                // Cria um elemento de áudio silencioso para manter o contexto ativo
+                this.silentAudio = new Audio();
+                this.silentAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
+                this.silentAudio.loop = true;
+                this.silentAudio.volume = 0;
+                this.silentAudio.preload = 'auto';
+                this.silentAudio.setAttribute('playsinline', 'true');
+                this.silentAudio.setAttribute('webkit-playsinline', 'true');
+            }
+
+            setupVisibilityHandlers() {
+                // Monitorar quando a página entra/sai do background
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        this.handleBackgroundEnter();
+                    } else {
+                        this.handleBackgroundExit();
+                    }
+                });
+                
+                // Eventos específicos para iOS
+                if (this.isIOS) {
+                    window.addEventListener('pagehide', this.handleIOSBackground.bind(this));
+                    window.addEventListener('pageshow', this.handleIOSForeground.bind(this));
+                    
+                    // Tentar prevenir o comportamento padrão de pause
+                    document.addEventListener('webkitvisibilitychange', () => {
+                        if (document.webkitHidden) {
+                            this.handleIOSBackground();
+                        }
                     });
                 }
+                
+                // Para Android, monitorar eventos de pause/resume
+                if (this.isAndroid) {
+                    document.addEventListener('pause', this.handleAndroidPause.bind(this));
+                    document.addEventListener('resume', this.handleAndroidResume.bind(this));
+                }
+            }
+
+            handleBackgroundEnter() {
+                console.log('Entrando em background');
+                this.isInBackground = true;
+                
+                // Mostrar status
+                this.showBackgroundStatus();
+                
+                // Pausar animações visuais para economizar bateria
+                this.pauseVisualEffects();
+                
+                // Para Android, tentar manter o Wake Lock
+                if (this.isAndroid && this.isPlaying) {
+                    this.keepAliveInBackground();
+                }
+                
+                // Para iOS, tentar manter o áudio ativo
+                if (this.isIOS && this.isPlaying) {
+                    this.keepIOSAudioAlive();
+                }
+            }
+
+            handleBackgroundExit() {
+                console.log('Saindo do background');
+                this.isInBackground = false;
+                
+                // Esconder status
+                this.hideBackgroundStatus();
+                
+                // Retomar animações visuais
+                this.resumeVisualEffects();
+                
+                // Para iOS, verificar se o áudio ainda está tocando
+                if (this.isIOS && this.isPlaying && this.audio.paused) {
+                    setTimeout(() => {
+                        if (this.isPlaying) {
+                            this.audio.play().catch(e => {
+                                console.log('Erro ao retomar após background:', e);
+                            });
+                        }
+                    }, 300);
+                }
+            }
+
+            handleIOSBackground() {
+                console.log('iOS entrando em background');
+                if (this.isPlaying) {
+                    // Tocar áudio silencioso para manter o contexto ativo
+                    if (this.silentAudio) {
+                        this.silentAudio.play().catch(() => {});
+                    }
+                    
+                    // Técnica: criar um contexto de áudio e tocar silenciosamente
+                    this.playSilentAudioForIOS();
+                }
+            }
+
+            handleIOSForeground() {
+                console.log('iOS saindo do background');
+                if (this.isPlaying && this.audio.paused) {
+                    setTimeout(() => {
+                        this.audio.play().catch(() => {});
+                    }, 500);
+                }
+                
+                // Parar áudio silencioso
+                if (this.silentAudio) {
+                    this.silentAudio.pause();
+                }
+            }
+
+            async playSilentAudioForIOS() {
+                try {
+                    // Criar um contexto de áudio e tocar silenciosamente
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    const audioContext = new AudioContext();
+                    const buffer = audioContext.createBuffer(1, 1, 22050);
+                    const source = audioContext.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioContext.destination);
+                    source.start(0);
+                    
+                    // Manter o contexto ativo
+                    setTimeout(() => {
+                        audioContext.suspend();
+                    }, 100);
+                } catch (error) {
+                    console.log('Erro ao tocar áudio silencioso iOS:', error);
+                }
+            }
+
+            handleAndroidPause() {
+                console.log('Android pausando');
+                if (this.isPlaying) {
+                    // Tentar manter o áudio tocando
+                    this.keepAliveInBackground();
+                }
+            }
+
+            handleAndroidResume() {
+                console.log('Android retomando');
+                if (this.isPlaying && this.audio.paused) {
+                    setTimeout(() => {
+                        this.audio.play().catch(() => {});
+                    }, 200);
+                }
+            }
+
+            keepAliveInBackground() {
+                // Para Android, tentar manter o áudio ativo
+                if (this.keepAliveInterval) {
+                    clearInterval(this.keepAliveInterval);
+                }
+                
+                this.keepAliveInterval = setInterval(() => {
+                    if (this.isPlaying && this.audio.paused) {
+                        console.log('Tentando manter áudio ativo em background...');
+                        this.audio.play().catch(() => {});
+                    }
+                }, 30000); // Verificar a cada 30 segundos
+            }
+
+            keepIOSAudioAlive() {
+                // Para iOS, técnica para manter o áudio ativo
+                if (this.isPlaying) {
+                    // Tocar áudio silencioso periodicamente
+                    setInterval(() => {
+                        if (this.isPlaying && document.hidden) {
+                            this.playSilentAudioForIOS();
+                        }
+                    }, 25000); // A cada 25 segundos
+                }
+            }
+
+            showBackgroundStatus() {
+                this.backgroundStatus.classList.add('show');
+            }
+
+            hideBackgroundStatus() {
+                this.backgroundStatus.classList.remove('show');
             }
 
             initMobileSupport() {
                 const activateAudio = () => {
                     if (!this.userInteracted) {
                         this.userInteracted = true;
+                        console.log('Áudio ativado por interação do usuário');
                         
                         if (this.isIOS) {
                             this.unlockAudioForIOS();
@@ -758,10 +1058,6 @@
 
                 document.addEventListener('touchstart', activateAudio, { passive: true });
                 document.addEventListener('click', activateAudio, { passive: true });
-
-                document.addEventListener('visibilitychange', () => {
-                    this.handleVisibilityChange();
-                });
             }
 
             async unlockAudioForIOS() {
@@ -777,6 +1073,8 @@
                     setTimeout(() => {
                         audioContext.suspend();
                     }, 100);
+                    
+                    console.log('Áudio destravado para iOS');
                 } catch (error) {
                     console.log('Erro ao destravar áudio iOS:', error);
                 }
@@ -859,6 +1157,19 @@
                 });
                 this.audio.addEventListener('ended', () => this.handleTrackEnd());
                 
+                // Interceptar eventos de pause para melhor controle em background
+                this.audio.addEventListener('pause', (e) => {
+                    // Se foi pausado pelo sistema e ainda queremos tocar
+                    if (this.isPlaying && this.isInBackground) {
+                        console.log('Áudio pausado pelo sistema em background, tentando retomar...');
+                        setTimeout(() => {
+                            if (this.isPlaying) {
+                                this.audio.play().catch(() => {});
+                            }
+                        }, 100);
+                    }
+                });
+                
                 this.playBtn.addEventListener('click', () => this.togglePlay());
                 
                 this.loopBtn.addEventListener('click', () => {
@@ -895,44 +1206,36 @@
             }
 
             initShareFunctionality() {
-                // Botão de abrir modal de compartilhamento
                 this.shareBtn.addEventListener('click', () => {
                     this.showShareModal();
                 });
                 
-                // Botão de fechar modal
                 this.shareCloseBtn.addEventListener('click', () => {
                     this.hideShareModal();
                 });
                 
-                // Fechar modal ao clicar fora
                 this.shareModal.addEventListener('click', (e) => {
                     if (e.target === this.shareModal) {
                         this.hideShareModal();
                     }
                 });
                 
-                // Botão de copiar URL
                 this.copyUrlBtn.addEventListener('click', () => {
                     this.copyToClipboard();
                 });
                 
-                // Botão de compartilhar no WhatsApp
                 this.whatsappShareBtn.addEventListener('click', () => {
                     this.shareOnWhatsApp();
                 });
                 
-                // Botão de compartilhar no Telegram
                 this.telegramShareBtn.addEventListener('click', () => {
                     this.shareOnTelegram();
                 });
                 
-                // Botão de compartilhar no Twitter
                 this.twitterShareBtn.addEventListener('click', () => {
                     this.shareOnTwitter();
                 });
                 
-                // Fechar modal com ESC
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape' && this.shareModal.classList.contains('active')) {
                         this.hideShareModal();
@@ -941,22 +1244,15 @@
             }
 
             generateShareUrl() {
-                // Captura a URL atual completa
                 const currentUrl = window.location.href;
                 
-                // Se já temos parâmetros, mantemos eles
-                // Caso contrário, criamos uma URL com os parâmetros atuais do player
                 let shareUrl = currentUrl;
                 
-                // Se não houver parâmetros na URL atual e o player tiver uma música carregada,
-                // criamos uma URL com os parâmetros atuais
                 if (!shareUrl.includes('?') && this.audio.src) {
                     const params = new URLSearchParams();
                     
-                    // Adiciona a URL do áudio
                     params.append('audio', encodeURIComponent(this.audio.src));
                     
-                    // Adiciona título e artista se disponíveis
                     if (this.trackTitle.textContent !== 'Winamp Player') {
                         params.append('track', encodeURIComponent(this.trackTitle.textContent));
                     }
@@ -964,7 +1260,6 @@
                         params.append('artist', encodeURIComponent(this.trackArtist.textContent));
                     }
                     
-                    // Adiciona a capa se não for a padrão
                     if (!this.albumArt.src.includes('data:image/svg+xml')) {
                         params.append('cover', encodeURIComponent(this.albumArt.src));
                     }
@@ -976,20 +1271,15 @@
             }
 
             showShareModal() {
-                // Gera a URL para compartilhamento
                 const shareUrl = this.generateShareUrl();
                 
-                // Atualiza o campo de entrada
                 this.shareUrlInput.value = shareUrl;
                 
-                // Seleciona todo o texto para facilitar a cópia
                 this.shareUrlInput.select();
                 this.shareUrlInput.setSelectionRange(0, shareUrl.length);
                 
-                // Mostra o modal
                 this.shareModal.classList.add('active');
                 
-                // Foca no campo de entrada
                 this.shareUrlInput.focus();
             }
 
@@ -1002,7 +1292,6 @@
                     await navigator.clipboard.writeText(this.shareUrlInput.value);
                     this.showToast('Link copiado para a área de transferência!');
                 } catch (err) {
-                    // Fallback para navegadores mais antigos
                     this.shareUrlInput.select();
                     document.execCommand('copy');
                     this.showToast('Link copiado!');
@@ -1077,6 +1366,19 @@
                         this.albumArt.classList.remove('rotating');
                         this.albumArt.classList.add('paused');
                         this.stopVUMeter();
+                        
+                        // Limpar timers de background
+                        this.stopIOSKeepAlive();
+                        if (this.keepAliveInterval) {
+                            clearInterval(this.keepAliveInterval);
+                            this.keepAliveInterval = null;
+                        }
+                        
+                        // Liberar Wake Lock
+                        if (this.wakeLock) {
+                            await this.wakeLock.release();
+                            this.wakeLock = null;
+                        }
                     } else {
                         this.audio.muted = false;
                         
@@ -1087,6 +1389,15 @@
                         // Garantir que o AudioContext esteja ativo
                         if (this.audioContext && this.audioContext.state === 'suspended') {
                             await this.audioContext.resume();
+                        }
+                        
+                        // Tentar adquirir Wake Lock para Android
+                        if (this.isAndroid && 'wakeLock' in navigator && !this.wakeLock) {
+                            try {
+                                this.wakeLock = await navigator.wakeLock.request('screen');
+                            } catch (err) {
+                                console.log('Não foi possível adquirir Wake Lock:', err);
+                            }
                         }
                         
                         await this.audio.play();
@@ -1143,18 +1454,15 @@
             updateBarsMode() {
                 if (!this.analyser || !this.frequencyData) return;
                 
-                // Obter dados reais de frequência
                 this.analyser.getByteFrequencyData(this.frequencyData);
                 
                 const totalBars = this.barElements.length;
                 const freqBinCount = this.frequencyData.length;
                 
-                // Dividir espectro em bandas (barras)
                 for (let i = 0; i < totalBars; i++) {
                     const startBin = Math.floor((i / totalBars) * freqBinCount);
                     const endBin = Math.floor(((i + 1) / totalBars) * freqBinCount);
                     
-                    // Calcular média da banda
                     let sum = 0;
                     let count = 0;
                     for (let j = startBin; j < endBin && j < freqBinCount; j++) {
@@ -1164,53 +1472,41 @@
                     
                     const average = count > 0 ? sum / count : 0;
                     
-                    // Converter para valor 0-1 (0-255 para 0-1)
                     let normalizedValue = average / 255;
                     
-                    // Aplicar escala logarítmica para melhor visualização
-                    // (o ouvido humano responde logaritmicamente a frequências)
                     normalizedValue = Math.pow(normalizedValue, 1.5);
                     
-                    // Ajustar dinamicamente baseado no volume geral
                     let volumeBoost = 1.0;
                     if (normalizedValue < 0.1) volumeBoost = 1.5;
                     else if (normalizedValue < 0.3) volumeBoost = 1.2;
                     
                     normalizedValue = Math.min(1, normalizedValue * volumeBoost);
                     
-                    // Calcular altura final (mínimo 2%, máximo 95%)
                     const height = 0.02 + (normalizedValue * 0.93);
                     
-                    // Atualizar barra
                     const bar = this.barElements[i];
                     bar.style.height = `${height * 100}%`;
                     bar.style.opacity = Math.max(0.3, Math.min(1, normalizedValue * 1.5));
                     
-                    // Cor dinâmica baseada na frequência e intensidade
-                    const frequencyPosition = i / totalBars; // 0 (baixas) a 1 (altas)
+                    const frequencyPosition = i / totalBars;
                     const intensity = normalizedValue;
                     
-                    // Transição de cor: verde (baixas) → ciano (médias) → azul (altas)
                     let r, g, b;
                     
                     if (frequencyPosition < 0.33) {
-                        // Baixas frequências: verde → ciano
                         r = 0;
                         g = 200;
                         b = 83 + (frequencyPosition * 3 * 50);
                     } else if (frequencyPosition < 0.66) {
-                        // Médias frequências: ciano → azul claro
                         r = 0;
                         g = 200 - ((frequencyPosition - 0.33) * 3 * 100);
                         b = 200;
                     } else {
-                        // Altas frequências: azul claro → azul
                         r = 0;
                         g = 50 - ((frequencyPosition - 0.66) * 3 * 25);
                         b = 200 - ((frequencyPosition - 0.66) * 3 * 50);
                     }
                     
-                    // Escurecer baseado na intensidade
                     const darkenFactor = 1 - (intensity * 0.1);
                     r = Math.floor(r * darkenFactor);
                     g = Math.floor(g * darkenFactor);
@@ -1223,30 +1519,24 @@
             updateWaveMode() {
                 if (!this.analyserTime || !this.timeDomainData) return;
                 
-                // Obter dados reais de domínio do tempo (forma de onda)
                 this.analyserTime.getByteTimeDomainData(this.timeDomainData);
                 
                 const totalWaveBars = this.waveBars.length;
                 const timeDataLength = this.timeDomainData.length;
                 
-                // Adicionar dados atuais ao histórico
                 const currentData = new Float32Array(totalWaveBars);
                 
-                // Amostrar dados de tempo para as barras da onda
                 for (let i = 0; i < totalWaveBars; i++) {
                     const sampleIndex = Math.floor((i / totalWaveBars) * timeDataLength);
-                    // Converter de 0-255 para -1 a 1 (128 = 0)
                     const sampleValue = (this.timeDomainData[sampleIndex] - 128) / 128;
                     currentData[i] = sampleValue;
                 }
                 
-                // Adicionar ao histórico e manter tamanho
                 this.historyBuffer.push(currentData);
                 if (this.historyBuffer.length > this.historySize) {
                     this.historyBuffer.shift();
                 }
                 
-                // Calcular média móvel para suavização
                 const smoothedData = new Float32Array(totalWaveBars).fill(0);
                 for (let j = 0; j < this.historyBuffer.length; j++) {
                     for (let i = 0; i < totalWaveBars; i++) {
@@ -1257,44 +1547,34 @@
                     smoothedData[i] /= this.historyBuffer.length;
                 }
                 
-                // Atualizar barras da forma de onda
                 for (let i = 0; i < totalWaveBars; i++) {
                     const waveValue = smoothedData[i];
                     
-                    // Converter valor de onda (-1 a 1) para altura (0 a 1)
-                    // Usar valor absoluto para mostrar amplitude
                     let amplitude = Math.abs(waveValue);
                     
-                    // Aplicar compressão não-linear para melhor visualização
                     amplitude = Math.pow(amplitude, 0.3);
                     
-                    // Altura baseada na amplitude
                     const height = 0.05 + (amplitude * 0.9);
                     
-                    // Atualizar barra da onda
                     const waveBar = this.waveBars[i];
                     waveBar.style.height = `${height * 100}%`;
                     waveBar.style.opacity = Math.max(0.4, Math.min(1, amplitude * 1.8));
                     
-                    // Cor baseada na posição na onda e amplitude
                     const position = i / totalWaveBars;
                     const isPositive = waveValue >= 0;
                     
                     let r, g, b;
                     
                     if (isPositive) {
-                        // Parte positiva da onda: verde
                         r = Math.floor(0 * amplitude);
                         g = Math.floor(200 * amplitude);
                         b = Math.floor(83 * amplitude);
                     } else {
-                        // Parte negativa da onda: azul
                         r = Math.floor(30 * amplitude);
                         g = Math.floor(144 * amplitude);
                         b = Math.floor(255 * amplitude);
                     }
                     
-                    // Adicionar gradiente baseado na posição
                     const positionFactor = position * 0.3;
                     r = Math.min(255, Math.floor(r * (1 + positionFactor)));
                     g = Math.min(255, Math.floor(g * (1 - positionFactor * 0.5)));
@@ -1311,7 +1591,6 @@
                 for (let i = 0; i < totalBars; i++) {
                     const position = i / totalBars;
                     
-                    // Simular diferentes frequências
                     const bass = Math.sin(time * 2 + position * Math.PI) * 0.3;
                     const mid = Math.sin(time * 5 + position * Math.PI * 2) * 0.2;
                     const treble = Math.sin(time * 10 + position * Math.PI * 4) * 0.1;
@@ -1339,7 +1618,6 @@
                 for (let i = 0; i < totalWaveBars; i++) {
                     const position = i / totalWaveBars;
                     
-                    // Simular forma de onda
                     const fundamental = Math.sin(time + position * Math.PI * 4) * 0.4;
                     const harmonic1 = Math.sin(time * 2 + position * Math.PI * 8) * 0.2;
                     const harmonic2 = Math.sin(time * 4 + position * Math.PI * 16) * 0.1;
@@ -1375,7 +1653,6 @@
                     this.vuAnimationId = null;
                 }
                 
-                // Resetar todas as barras
                 this.barElements.forEach(bar => {
                     bar.style.height = '2px';
                     bar.style.opacity = '0.2';
@@ -1389,6 +1666,21 @@
                 });
             }
 
+            pauseVisualEffects() {
+                if (this.vuAnimationId) {
+                    cancelAnimationFrame(this.vuAnimationId);
+                    this.vuAnimationId = null;
+                }
+                this.albumArt.classList.add('paused');
+            }
+
+            resumeVisualEffects() {
+                if (this.isPlaying) {
+                    this.startVUMeter();
+                }
+                this.albumArt.classList.remove('paused');
+            }
+
             handleTrackEnd() {
                 if (!this.isLooping) {
                     this.isPlaying = false;
@@ -1396,6 +1688,20 @@
                     this.albumArt.classList.remove('rotating');
                     this.albumArt.classList.add('paused');
                     this.stopVUMeter();
+                    
+                    // Limpar timers de background
+                    this.stopIOSKeepAlive();
+                    if (this.keepAliveInterval) {
+                        clearInterval(this.keepAliveInterval);
+                        this.keepAliveInterval = null;
+                    }
+                    
+                    // Liberar Wake Lock
+                    if (this.wakeLock) {
+                        this.wakeLock.release().then(() => {
+                            this.wakeLock = null;
+                        });
+                    }
                 }
             }
 
@@ -1472,29 +1778,6 @@
                 const mins = Math.floor(seconds / 60);
                 const secs = Math.floor(seconds % 60);
                 return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            }
-
-            handleVisibilityChange() {
-                if (document.hidden) {
-                    this.pauseVisualEffects();
-                } else {
-                    this.resumeVisualEffects();
-                }
-            }
-
-            pauseVisualEffects() {
-                if (this.vuAnimationId) {
-                    cancelAnimationFrame(this.vuAnimationId);
-                    this.vuAnimationId = null;
-                }
-                this.albumArt.classList.add('paused');
-            }
-
-            resumeVisualEffects() {
-                if (this.isPlaying) {
-                    this.startVUMeter();
-                }
-                this.albumArt.classList.remove('paused');
             }
         }
 
