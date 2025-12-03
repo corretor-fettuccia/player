@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Winamp Player</title>
+    <title>Winamp-Style Audio Player v8</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --primary: #4cff8f;
+            --primary: #00c853;
             --dark: #1a1a1a;
-            --light: #00ff88;
+            --light: #e0e0e0;
             --gray: #666;
         }
 
@@ -181,30 +181,6 @@
             color: #000;
         }
 
-        .share-btn {
-            background: #444;
-            color: var(--primary);
-            border: none;
-            border-radius: 5px;
-            padding: 6px 12px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-left: auto;
-            transition: all 0.2s;
-        }
-
-        .share-btn:hover {
-            background: #555;
-            transform: scale(1.05);
-        }
-
-        .share-btn:active {
-            transform: scale(0.95);
-        }
-
         .vu-container {
             height: 100px;
             background: #0d0d0d;
@@ -267,7 +243,6 @@
             background: var(--primary);
             border-radius: 1px 1px 0 0;
             transition: height 0.1s ease;
-            min-height: 2px;
         }
 
         .vu-wave-container {
@@ -275,11 +250,12 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            display: none;
         }
 
         .vu-wave {
-            position: relative;
+            position: absolute;
+            bottom: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             display: flex;
@@ -289,10 +265,28 @@
         .wave-bar {
             flex: 1;
             background: var(--primary);
-            margin: 0 0.5px;
-            border-radius: 1px 1px 0 0;
+            margin: 0 1px;
+            border-radius: 2px 2px 0 0;
             min-height: 1px;
-            transition: height 0.15s ease;
+        }
+
+        .wave-animation {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 20px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 200, 83, 0.4) 50%, 
+                transparent 100%);
+            opacity: 0.6;
+            animation: waveMove 3s linear infinite;
+        }
+
+        @keyframes waveMove {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0%); }
         }
 
         .vu-bars-mode .vu-bars {
@@ -334,256 +328,6 @@
             border-radius: 2px;
         }
 
-        /* Modal de compartilhamento */
-        .share-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .share-modal.active {
-            display: flex;
-        }
-
-        .share-modal-content {
-            background: #222;
-            border-radius: 10px;
-            padding: 20px;
-            width: 90%;
-            max-width: 400px;
-            border: 1px solid var(--primary);
-        }
-
-        .share-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .share-modal-title {
-            color: var(--primary);
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-
-        .share-close-btn {
-            background: none;
-            border: none;
-            color: var(--gray);
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-        }
-
-        .share-close-btn:hover {
-            background: #333;
-            color: var(--light);
-        }
-
-        .share-url-container {
-            margin-bottom: 15px;
-        }
-
-        .share-url-label {
-            display: block;
-            color: var(--gray);
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-        }
-
-        .share-url-input {
-            width: 100%;
-            padding: 10px;
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 5px;
-            color: var(--light);
-            font-family: monospace;
-            font-size: 0.85rem;
-            cursor: text;
-            user-select: all;
-        }
-
-        .share-url-input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        .share-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .share-action-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            background: #333;
-            color: var(--light);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            transition: background 0.2s;
-        }
-
-        .share-action-btn:hover {
-            background: #444;
-        }
-
-        .share-action-btn.copy {
-            background: var(--primary);
-            color: #000;
-            font-weight: 600;
-        }
-
-        .share-action-btn.copy:hover {
-            background: #66ffa6;
-        }
-
-        .share-action-btn.whatsapp {
-            background: #25D366;
-            color: white;
-        }
-
-        .share-action-btn.whatsapp:hover {
-            background: #2efd78;
-        }
-
-        .share-action-btn.telegram {
-            background: #0088cc;
-            color: white;
-        }
-
-        .share-action-btn.telegram:hover {
-            background: #0099e6;
-        }
-
-        .share-action-btn.twitter {
-            background: #1DA1F2;
-            color: white;
-        }
-
-        .share-action-btn.twitter:hover {
-            background: #3bb4ff;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary);
-            color: #000;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-weight: 600;
-            z-index: 1001;
-            opacity: 0;
-            transition: opacity 0.3s;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .toast.show {
-            opacity: 1;
-        }
-
-        /* Status de tela bloqueada */
-        .background-status {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: var(--primary);
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.7rem;
-            z-index: 999;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-        }
-
-        .background-status.show {
-            opacity: 1;
-        }
-
-        /* Instruções para iOS */
-        .ios-instructions {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .ios-instructions.show {
-            display: flex;
-        }
-
-        .ios-instructions-content {
-            background: #222;
-            border-radius: 10px;
-            padding: 25px;
-            max-width: 400px;
-            border: 2px solid var(--primary);
-        }
-
-        .ios-instructions h3 {
-            color: var(--primary);
-            margin-bottom: 15px;
-            font-size: 1.2rem;
-        }
-
-        .ios-instructions ol {
-            text-align: left;
-            margin: 15px 0;
-            padding-left: 20px;
-        }
-
-        .ios-instructions li {
-            margin-bottom: 10px;
-            line-height: 1.4;
-        }
-
-        .ios-instructions-close {
-            background: var(--primary);
-            color: #000;
-            border: none;
-            border-radius: 5px;
-            padding: 10px 20px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 15px;
-            width: 100%;
-        }
-
         /* Estilo para dispositivos móveis */
         @media (max-width: 480px) {
             .container {
@@ -606,15 +350,6 @@
                 width: 50px;
                 height: 50px;
             }
-            
-            .share-modal-content {
-                width: 95%;
-                padding: 15px;
-            }
-            
-            .share-actions {
-                flex-direction: column;
-            }
         }
     </style>
 </head>
@@ -624,13 +359,9 @@
             <div class="logo">
                 <i class="fas fa-music logo-icon"></i>
                 <div class="track-info">
-                    <div id="trackTitle" class="track-title">Winamp Player</div>
-                    <div id="trackArtist" class="track-artist">Clique em Play</div>
+                    <div id="trackTitle" class="track-title">Winamp Player v8</div>
+                    <div id="trackArtist" class="track-artist">Carregando...</div>
                 </div>
-                <button class="share-btn" id="shareBtn" title="Compartilhar">
-                    <i class="fas fa-share-alt"></i>
-                    <span>Compartilhar</span>
-                </button>
             </div>
         </div>
 
@@ -675,6 +406,7 @@
                     <div class="vu-bars" id="vuBars"></div>
                     <div class="vu-wave-container" id="vuWaveContainer">
                         <div class="vu-wave" id="vuWave"></div>
+                        <div class="wave-animation" id="waveAnimation"></div>
                     </div>
                 </div>
             </div>
@@ -688,1281 +420,731 @@
         </div>
     </div>
 
-    <!-- Modal de Compartilhamento -->
-    <div class="share-modal" id="shareModal">
-        <div class="share-modal-content">
-            <div class="share-modal-header">
-                <div class="share-modal-title">Compartilhar Player</div>
-                <button class="share-close-btn" id="shareCloseBtn">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="share-url-container">
-                <label class="share-url-label">URL para compartilhar:</label>
-                <input type="text" class="share-url-input" id="shareUrlInput" readonly>
-            </div>
-            
-            <div class="share-actions">
-                <button class="share-action-btn copy" id="copyUrlBtn">
-                    <i class="fas fa-copy"></i>
-                    Copiar Link
-                </button>
-                <button class="share-action-btn whatsapp" id="whatsappShareBtn">
-                    <i class="fab fa-whatsapp"></i>
-                    WhatsApp
-                </button>
-                <button class="share-action-btn telegram" id="telegramShareBtn">
-                    <i class="fab fa-telegram"></i>
-                    Telegram
-                </button>
-                <button class="share-action-btn twitter" id="twitterShareBtn">
-                    <i class="fab fa-twitter"></i>
-                    Twitter
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast de notificação -->
-    <div class="toast" id="toast"></div>
-
-    <!-- Status de tela bloqueada -->
-    <div class="background-status" id="backgroundStatus">Tocando em segundo plano</div>
-
-    <!-- Instruções para iOS -->
-    <div class="ios-instructions" id="iosInstructions">
-        <div class="ios-instructions-content">
-            <h3>📱 Para iPhone/iPad</h3>
-            <p>Para ouvir música com a tela bloqueada:</p>
-            <ol>
-                <li>Toque em <strong>Compartilhar</strong> no Safari</li>
-                <li>Desça e selecione <strong>"Adicionar à Tela de Início"</strong></li>
-                <li>Abra o player pela tela de início</li>
-                <li>Agora a música continuará com a tela bloqueada!</li>
-            </ol>
-            <p><em>Esta é uma limitação do Safari no iOS. A solução é instalar o player como app.</em></p>
-            <button class="ios-instructions-close" id="iosInstructionsClose">Entendi</button>
-        </div>
-    </div>
-
     <audio id="audioElement"></audio>
 
-    <!-- Áudio silencioso para manter contexto ativo -->
-    <audio id="silentAudio" loop style="display: none;"></audio>
-
     <script>
-        class WinampPlayer {
-            constructor() {
-                this.audio = document.getElementById('audioElement');
-                this.trackTitle = document.getElementById('trackTitle');
-                this.trackArtist = document.getElementById('trackArtist');
-                this.albumArt = document.getElementById('albumArt');
-                this.playBtn = document.getElementById('playBtn');
-                this.playIcon = document.getElementById('playIcon');
-                this.loopBtn = document.getElementById('loopBtn');
-                this.loopIcon = document.getElementById('loopIcon');
-                this.progressBar = document.getElementById('progressBar');
-                this.progressFill = document.getElementById('progressFill');
-                this.currentTime = document.getElementById('currentTime');
-                this.totalTime = document.getElementById('totalTime');
-                this.volumeSlider = document.getElementById('volumeSlider');
-                this.volumeFill = document.getElementById('volumeFill');
-                this.vuContainer = document.getElementById('vuContainer');
-                this.vuContent = document.getElementById('vuContent');
-                this.vuBars = document.getElementById('vuBars');
-                this.vuWave = document.getElementById('vuWave');
-                this.vuWaveContainer = document.getElementById('vuWaveContainer');
-                this.vuModeBtn = document.getElementById('vuModeBtn');
-                this.vuModeText = document.getElementById('vuModeText');
+        // DETECTAR DISPOSITIVO
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        const isMobile = isIOS || isAndroid;
+        
+        // ELEMENTOS DO DOM
+        const audio = document.getElementById('audioElement');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const currentTime = document.getElementById('currentTime');
+        const totalTime = document.getElementById('totalTime');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeFill = document.getElementById('volumeFill');
+        const trackTitle = document.getElementById('trackTitle');
+        const trackArtist = document.getElementById('trackArtist');
+        const albumArt = document.getElementById('albumArt');
+        const vuBars = document.getElementById('vuBars');
+        const vuWave = document.getElementById('vuWave');
+        const waveAnimation = document.getElementById('waveAnimation');
+        const loopBtn = document.getElementById('loopBtn');
+        const loopIcon = document.getElementById('loopIcon');
+        const vuModeBtn = document.getElementById('vuModeBtn');
+        const vuModeText = document.getElementById('vuModeText');
+        const vuContent = document.getElementById('vuContent');
+        
+        // VARIÁVEIS DE ESTADO
+        let isPlaying = false;
+        let isLooping = false;
+        let vuMode = 'bars';
+        let vuAnimationId = null;
+        let waveBars = [];
+        let mediaSession = null;
+        let wakeLock = null;
+        let keepAliveInterval = null;
+        let userInteracted = false;
+        let shouldAutoplay = false;
+        
+        // CONFIGURAÇÃO INICIAL
+        function init() {
+            console.log('Winamp Player v8 - Iniciando...');
+            
+            setupAudio();
+            setupVUMeter();
+            setupEventListeners();
+            
+            // Verificar parâmetros da URL primeiro
+            checkUrlParams();
+            
+            // Para mobile: toque inicial para destravar
+            if (isMobile) {
+                setupMobileActivation();
+            } else {
+                userInteracted = true; // Desktop já está destravado
+            }
+            
+            console.log('Player pronto! Toque em PLAY para começar.');
+        }
+        
+        // VERIFICAR PARÂMETROS DA URL
+        function checkUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const audioUrl = params.get('audio');
+            const track = params.get('track');
+            const artist = params.get('artist');
+            const cover = params.get('cover');
+            const autoplay = params.get('autoplay');
+            
+            console.log('Parâmetros da URL:', { audioUrl, track, artist, cover, autoplay });
+            
+            if (audioUrl) {
+                // Decodificar URL corretamente
+                const decodedUrl = decodeURIComponent(audioUrl);
+                console.log('Carregando áudio:', decodedUrl);
                 
-                // Elementos de compartilhamento
-                this.shareBtn = document.getElementById('shareBtn');
-                this.shareModal = document.getElementById('shareModal');
-                this.shareCloseBtn = document.getElementById('shareCloseBtn');
-                this.shareUrlInput = document.getElementById('shareUrlInput');
-                this.copyUrlBtn = document.getElementById('copyUrlBtn');
-                this.whatsappShareBtn = document.getElementById('whatsappShareBtn');
-                this.telegramShareBtn = document.getElementById('telegramShareBtn');
-                this.twitterShareBtn = document.getElementById('twitterShareBtn');
-                this.toast = document.getElementById('toast');
-                this.backgroundStatus = document.getElementById('backgroundStatus');
+                // Carregar música da URL
+                loadTrackFromUrl(decodedUrl, track, artist, cover);
                 
-                // Elementos para iOS
-                this.iosInstructions = document.getElementById('iosInstructions');
-                this.iosInstructionsClose = document.getElementById('iosInstructionsClose');
-                this.silentAudioElement = document.getElementById('silentAudio');
-                
-                this.isPlaying = false;
-                this.isLooping = false;
-                this.vuMode = 'bars';
-                this.audio.volume = 0.7;
-                this.volumeFill.style.width = '70%';
-                this.audio.crossOrigin = "anonymous";
-                
-                // Detectar dispositivo
-                this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                this.isAndroid = /Android/.test(navigator.userAgent);
-                this.isMobile = this.isIOS || this.isAndroid;
-                this.isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-                this.isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-                
-                this.userInteracted = false;
-                
-                // Para VU meter com captura real
-                this.audioContext = null;
-                this.analyser = null;
-                this.analyserTime = null;
-                this.source = null;
-                this.vuAnimationId = null;
-                
-                // Para funcionamento em segundo plano
-                this.wakeLock = null;
-                this.keepAliveInterval = null;
-                this.backgroundCheckInterval = null;
-                this.isInBackground = false;
-                this.backgroundAudioContext = null;
-                this.backgroundAudioSource = null;
-                this.backgroundAudioPlaying = false;
-                
-                // Buffers de dados
-                this.frequencyData = null;
-                this.timeDomainData = null;
-                this.waveBars = [];
-                this.barElements = [];
-                
-                // Configurações
-                this.smoothingTimeConstant = 0.8;
-                this.lastUpdateTime = 0;
-                this.updateInterval = 50;
-                this.historyBuffer = [];
-                this.historySize = 3;
-                
-                // Configurar áudio para segundo plano
-                this.setupBackgroundAudio();
-                this.initVUMeter();
-                this.initEventListeners();
-                this.checkUrlParams();
-                this.setVUMode('bars');
-                
-                this.initMobileSupport();
-                this.initShareFunctionality();
-                this.initBackgroundSupport();
-                
-                // Mostrar instruções para iOS se for Safari e não for standalone
-                if (this.isIOS && this.isSafari && !this.isStandalone) {
-                    setTimeout(() => {
-                        this.showIOSInstructions();
-                    }, 3000);
+                // Verificar se deve dar autoplay
+                if (autoplay === 'true') {
+                    shouldAutoplay = true;
+                    console.log('Autoplay ativado');
+                }
+            } else {
+                // Carregar música demo
+                loadDemoTrack();
+            }
+        }
+        
+        // CARREGAR MÚSICA DA URL
+        function loadTrackFromUrl(url, track, artist, cover) {
+            // Configurar áudio
+            audio.src = url;
+            
+            // Configurar título e artista
+            trackTitle.textContent = track || 'Música Personalizada';
+            trackArtist.textContent = artist || 'Artista';
+            
+            // Configurar capa se fornecida
+            if (cover) {
+                try {
+                    const decodedCover = decodeURIComponent(cover);
+                    albumArt.src = decodedCover;
+                    console.log('Capa carregada:', decodedCover);
+                } catch (e) {
+                    console.log('Erro ao carregar capa:', e);
                 }
             }
-
-            setupBackgroundAudio() {
-                // Configurações ESSENCIAIS para áudio em segundo plano
-                this.audio.setAttribute('playsinline', 'true');
-                this.audio.setAttribute('webkit-playsinline', 'true');
-                this.audio.setAttribute('x-webkit-airplay', 'allow');
-                this.audio.preload = 'auto';
-                this.audio.setAttribute('loop', 'false');
+            
+            // Atualizar Media Session
+            if (mediaSession) {
+                mediaSession.metadata = new MediaMetadata({
+                    title: trackTitle.textContent,
+                    artist: trackArtist.textContent,
+                    artwork: cover ? [
+                        { src: decodeURIComponent(cover), sizes: '120x120', type: 'image/jpeg' }
+                    ] : [
+                        { src: albumArt.src, sizes: '120x120', type: 'image/svg+xml' }
+                    ]
+                });
+            }
+            
+            // Carregar áudio
+            audio.load();
+            console.log('Áudio carregado da URL');
+            
+            // Se autoplay estiver ativado, tentar tocar automaticamente
+            if (shouldAutoplay && userInteracted) {
+                setTimeout(() => {
+                    if (!isPlaying) {
+                        playAudio();
+                    }
+                }, 1000);
+            }
+        }
+        
+        // CONFIGURAR ÁUDIO - SIMPLES E DIRETO
+        function setupAudio() {
+            audio.setAttribute('playsinline', 'true');
+            audio.setAttribute('webkit-playsinline', 'true');
+            audio.setAttribute('preload', 'auto');
+            audio.volume = 0.7;
+            volumeFill.style.width = '70%';
+            
+            // Configurar Media Session se disponível
+            if ('mediaSession' in navigator) {
+                mediaSession = navigator.mediaSession;
+                setupMediaSession();
+            }
+            
+            // Configurar para funcionar em segundo plano
+            setupBackgroundAudio();
+        }
+        
+        // CONFIGURAÇÃO PARA SEGUNDO PLANO
+        function setupBackgroundAudio() {
+            // Técnica principal: manter Media Session atualizado
+            if (mediaSession) {
+                document.addEventListener('visibilitychange', () => {
+                    if (isPlaying && document.hidden) {
+                        // App está em segundo plano - manter áudio vivo
+                        keepAudioAlive();
+                    }
+                });
                 
-                // Configurar áudio silencioso
-                this.silentAudioElement.src = this.createSilentAudioSrc();
-                this.silentAudioElement.loop = true;
-                this.silentAudioElement.volume = 0.001; // Quase zero, mas não zero
-                this.silentAudioElement.preload = 'auto';
-                this.silentAudioElement.setAttribute('playsinline', 'true');
-                this.silentAudioElement.setAttribute('webkit-playsinline', 'true');
-                
-                // Para iOS, adicionar tratamento especial
-                if (this.isIOS) {
-                    this.setupIOSAudioHandling();
+                // Para iOS, tentar evitar pausa automática
+                if (isIOS) {
+                    audio.addEventListener('pause', (e) => {
+                        if (isPlaying && document.hidden) {
+                            console.log('iOS tentou pausar, retomando...');
+                            setTimeout(() => {
+                                if (isPlaying) {
+                                    audio.play().catch(() => {});
+                                }
+                            }, 100);
+                        }
+                    });
                 }
             }
-
-            createSilentAudioSrc() {
-                // Criar um áudio WAV silencioso (1 segundo de silêncio)
-                const sampleRate = 44100;
-                const numberOfChannels = 2;
-                const length = sampleRate * numberOfChannels;
+        }
+        
+        // MANTER ÁUDIO VIVO EM SEGUNDO PLANO
+        function keepAudioAlive() {
+            if (!isPlaying) return;
+            
+            console.log('Mantendo áudio em segundo plano...');
+            
+            // Atualizar Media Session
+            if (mediaSession) {
+                mediaSession.playbackState = 'playing';
                 
-                // Criar buffer de áudio
-                const buffer = new ArrayBuffer(44 + length * 2);
-                const view = new DataView(buffer);
+                // Atualizar periodicamente
+                if (keepAliveInterval) clearInterval(keepAliveInterval);
                 
-                // Escrever cabeçalho WAV
-                this.writeString(view, 0, 'RIFF');
-                view.setUint32(4, 36 + length * 2, true);
-                this.writeString(view, 8, 'WAVE');
-                this.writeString(view, 12, 'fmt ');
-                view.setUint32(16, 16, true);
-                view.setUint16(20, 1, true);
-                view.setUint16(22, numberOfChannels, true);
-                view.setUint32(24, sampleRate, true);
-                view.setUint32(28, sampleRate * numberOfChannels * 2, true);
-                view.setUint16(32, numberOfChannels * 2, true);
-                view.setUint16(34, 16, true);
-                this.writeString(view, 36, 'data');
-                view.setUint32(40, length * 2, true);
-                
-                // Escrever dados silenciosos (valores zero)
-                for (let i = 0; i < length; i++) {
-                    view.setInt16(44 + i * 2, 0, true);
-                }
-                
-                // Converter para base64
-                const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
-                return 'data:audio/wav;base64,' + base64;
-            }
-
-            writeString(view, offset, string) {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            }
-
-            setupIOSAudioHandling() {
-                // Técnicas específicas para iOS
-                
-                // 1. Interceptar eventos de play/pause
-                const originalPlay = this.audio.play.bind(this.audio);
-                const originalPause = this.audio.pause.bind(this.audio);
-                
-                this.audio.play = async () => {
-                    try {
-                        // Primeiro, iniciar áudio silencioso para manter contexto
-                        if (!this.backgroundAudioPlaying) {
-                            await this.startSilentAudio();
+                keepAliveInterval = setInterval(() => {
+                    if (isPlaying && document.hidden) {
+                        if (audio.paused) {
+                            console.log('Áudio pausado, tentando retomar...');
+                            audio.play().catch(() => {});
                         }
                         
-                        // Depois, tocar o áudio real
-                        const result = await originalPlay();
-                        
-                        // Iniciar verificações de background
-                        this.startBackgroundChecks();
-                        
-                        return result;
-                    } catch (error) {
-                        console.error('Erro ao tocar no iOS:', error);
-                        throw error;
+                        // Atualizar posição
+                        mediaSession.setPositionState({
+                            duration: audio.duration || 0,
+                            playbackRate: audio.playbackRate,
+                            position: audio.currentTime || 0
+                        });
+                    } else {
+                        clearInterval(keepAliveInterval);
                     }
-                };
-                
-                this.audio.pause = () => {
-                    // Parar verificações de background
-                    this.stopBackgroundChecks();
+                }, 3000);
+            }
+        }
+        
+        // CONFIGURAR MEDIA SESSION
+        function setupMediaSession() {
+            mediaSession.metadata = new MediaMetadata({
+                title: 'Winamp Player',
+                artist: 'Carregando...',
+                artwork: [
+                    { src: albumArt.src, sizes: '120x120', type: 'image/svg+xml' }
+                ]
+            });
+            
+            mediaSession.setActionHandler('play', () => {
+                playAudio();
+            });
+            
+            mediaSession.setActionHandler('pause', () => {
+                pauseAudio();
+            });
+            
+            console.log('Media Session configurado');
+        }
+        
+        // ATIVAÇÃO PARA MOBILE
+        function setupMobileActivation() {
+            // Técnica: primeiro toque destrava tudo
+            const unlockAudio = () => {
+                if (!userInteracted) {
+                    userInteracted = true;
+                    console.log('Áudio destravado pelo toque do usuário');
                     
-                    // Parar áudio silencioso
-                    this.stopSilentAudio();
-                    
-                    return originalPause();
-                };
-                
-                // 2. Adicionar listener para quando o áudio é pausado pelo sistema
-                this.audio.addEventListener('pause', (e) => {
-                    // Se foi pausado pelo sistema e estamos tocando
-                    if (this.isPlaying && document.hidden) {
-                        console.log('iOS pausou o áudio, tentando retomar...');
+                    // Para iOS, criar contexto de áudio
+                    if (isIOS) {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        const audioContext = new AudioContext();
+                        
+                        // Criar oscilador silencioso
+                        const oscillator = audioContext.createOscillator();
+                        oscillator.frequency.value = 0;
+                        const gainNode = audioContext.createGain();
+                        gainNode.gain.value = 0;
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        oscillator.start();
+                        
                         setTimeout(() => {
-                            if (this.isPlaying && this.audio.paused) {
-                                this.audio.play().catch(err => {
-                                    console.log('Não foi possível retomar:', err);
-                                });
+                            oscillator.stop();
+                            if (audioContext.state !== 'closed') {
+                                audioContext.suspend();
                             }
                         }, 100);
                     }
-                });
-                
-                // 3. Adicionar listener para loadedmetadata
-                this.audio.addEventListener('loadedmetadata', () => {
-                    this.audio.muted = false;
-                });
-            }
-
-            async startSilentAudio() {
-                try {
-                    // Tocar áudio silencioso para manter contexto de áudio ativo
-                    await this.silentAudioElement.play();
-                    this.backgroundAudioPlaying = true;
-                    console.log('Áudio silencioso iniciado para manter contexto');
-                } catch (error) {
-                    console.log('Não foi possível tocar áudio silencioso:', error);
-                }
-            }
-
-            stopSilentAudio() {
-                try {
-                    this.silentAudioElement.pause();
-                    this.silentAudioElement.currentTime = 0;
-                    this.backgroundAudioPlaying = false;
-                    console.log('Áudio silencioso parado');
-                } catch (error) {
-                    console.log('Erro ao parar áudio silencioso:', error);
-                }
-            }
-
-            startBackgroundChecks() {
-                // Verificar periodicamente se o áudio ainda está tocando
-                if (this.backgroundCheckInterval) {
-                    clearInterval(this.backgroundCheckInterval);
-                }
-                
-                this.backgroundCheckInterval = setInterval(() => {
-                    if (this.isPlaying && this.audio.paused && document.hidden) {
-                        console.log('Áudio pausado em background, tentando retomar...');
-                        this.audio.play().catch(err => {
-                            console.log('Erro ao retomar:', err);
-                            
-                            // Tentar técnica alternativa
-                            this.tryAlternativeResume();
-                        });
+                    
+                    // Remover listeners
+                    document.removeEventListener('touchstart', unlockAudio);
+                    document.removeEventListener('click', unlockAudio);
+                    
+                    // Se autoplay estiver ativado, tentar tocar
+                    if (shouldAutoplay && !isPlaying) {
+                        setTimeout(() => {
+                            playAudio();
+                        }, 500);
                     }
-                }, 2000); // Verificar a cada 2 segundos
-            }
-
-            stopBackgroundChecks() {
-                if (this.backgroundCheckInterval) {
-                    clearInterval(this.backgroundCheckInterval);
-                    this.backgroundCheckInterval = null;
                 }
+            };
+            
+            // Destravar com primeiro toque
+            document.addEventListener('touchstart', unlockAudio, { passive: true });
+            document.addEventListener('click', unlockAudio, { passive: true });
+        }
+        
+        // CONFIGURAR VU METER
+        function setupVUMeter() {
+            // Barras para modo espectro
+            for (let i = 0; i < 40; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'vu-bar';
+                bar.style.height = '5px';
+                vuBars.appendChild(bar);
             }
-
-            tryAlternativeResume() {
-                // Técnica alternativa para retomar áudio no iOS
-                if (!this.isIOS) return;
-                
-                // 1. Tentar tocar áudio silencioso primeiro
-                this.silentAudioElement.play().catch(() => {});
-                
-                // 2. Depois de um delay, tentar tocar o áudio real
-                setTimeout(() => {
-                    if (this.isPlaying && this.audio.paused) {
-                        this.audio.currentTime = this.audio.currentTime; // Forçar recarga
-                        this.audio.play().catch(() => {});
-                    }
-                }, 100);
+            
+            // Barras para modo onda
+            for (let i = 0; i < 60; i++) {
+                const waveBar = document.createElement('div');
+                waveBar.className = 'wave-bar';
+                waveBar.style.height = '5px';
+                vuWave.appendChild(waveBar);
+                waveBars.push(waveBar);
             }
-
-            initBackgroundSupport() {
-                // Configurar Wake Lock para Android
-                if ('wakeLock' in navigator && this.isAndroid) {
-                    this.setupWakeLock();
-                }
-                
-                // Configurar handlers de visibilidade
-                this.setupVisibilityHandlers();
-            }
-
-            async setupWakeLock() {
-                try {
-                    this.wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock adquirido para Android');
-                    
-                    this.wakeLock.addEventListener('release', () => {
-                        console.log('Wake Lock liberado');
-                        this.wakeLock = null;
-                    });
-                    
-                    // Re-aquirir Wake Lock quando a página voltar ao foreground
-                    document.addEventListener('visibilitychange', async () => {
-                        if (document.visibilityState === 'visible' && this.isPlaying && !this.wakeLock) {
-                            try {
-                                this.wakeLock = await navigator.wakeLock.request('screen');
-                                console.log('Wake Lock re-adquirido');
-                            } catch (err) {
-                                console.log('Não foi possível re-adquirir Wake Lock:', err);
-                            }
-                        }
-                    });
-                } catch (err) {
-                    console.log('Wake Lock não disponível:', err);
-                }
-            }
-
-            setupVisibilityHandlers() {
-                // Monitorar quando a página entra/sai do background
-                document.addEventListener('visibilitychange', () => {
-                    if (document.hidden) {
-                        this.handleBackgroundEnter();
-                    } else {
-                        this.handleBackgroundExit();
-                    }
-                });
-                
-                // Eventos específicos para iOS
-                if (this.isIOS) {
-                    window.addEventListener('pagehide', () => {
-                        this.handleIOSBackground();
-                    });
-                    
-                    window.addEventListener('pageshow', () => {
-                        this.handleIOSForeground();
-                    });
-                }
-            }
-
-            handleBackgroundEnter() {
-                console.log('Entrando em background');
-                this.isInBackground = true;
-                
-                // Mostrar status
-                this.showBackgroundStatus();
-                
-                // Pausar animações visuais para economizar bateria
-                this.pauseVisualEffects();
-                
-                // Para Android, manter Wake Lock se já tiver
-                if (this.isAndroid && this.isPlaying && this.wakeLock) {
-                    console.log('Mantendo Wake Lock ativo');
-                }
-                
-                // Para iOS, garantir que o áudio silencioso esteja tocando
-                if (this.isIOS && this.isPlaying && !this.backgroundAudioPlaying) {
-                    this.startSilentAudio().catch(() => {});
-                }
-            }
-
-            handleBackgroundExit() {
-                console.log('Saindo do background');
-                this.isInBackground = false;
-                
-                // Esconder status
-                this.hideBackgroundStatus();
-                
-                // Retomar animações visuais
-                this.resumeVisualEffects();
-                
-                // Para iOS, verificar se o áudio ainda está tocando
-                if (this.isIOS && this.isPlaying && this.audio.paused) {
-                    setTimeout(() => {
-                        if (this.isPlaying) {
-                            this.audio.play().catch(e => {
-                                console.log('Erro ao retomar após background:', e);
-                            });
-                        }
-                    }, 300);
-                }
-            }
-
-            handleIOSBackground() {
-                console.log('iOS: Entrando em background');
-                
-                // Técnica: criar e tocar áudio silencioso via Web Audio API
-                this.playWebAudioSilent().catch(() => {});
-            }
-
-            handleIOSForeground() {
-                console.log('iOS: Saindo do background');
-                
-                // Tentar retomar o áudio se necessário
-                if (this.isPlaying && this.audio.paused) {
-                    setTimeout(() => {
-                        this.audio.play().catch(() => {});
-                    }, 500);
-                }
-            }
-
-            async playWebAudioSilent() {
-                // Técnica alternativa usando Web Audio API
-                try {
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    if (!this.backgroundAudioContext) {
-                        this.backgroundAudioContext = new AudioContext();
-                    }
-                    
-                    // Criar buffer de áudio silencioso
-                    const buffer = this.backgroundAudioContext.createBuffer(1, 1, 22050);
-                    const source = this.backgroundAudioContext.createBufferSource();
-                    source.buffer = buffer;
-                    
-                    // Conectar ao destino
-                    source.connect(this.backgroundAudioContext.destination);
-                    
-                    // Tocar
-                    source.start(0);
-                    
-                    // Guardar referência
-                    this.backgroundAudioSource = source;
-                    
-                } catch (error) {
-                    console.log('Erro ao tocar áudio silencioso Web Audio:', error);
-                }
-            }
-
-            showBackgroundStatus() {
-                this.backgroundStatus.classList.add('show');
-                
-                // Esconder após 3 segundos
-                setTimeout(() => {
-                    this.backgroundStatus.classList.remove('show');
-                }, 3000);
-            }
-
-            hideBackgroundStatus() {
-                this.backgroundStatus.classList.remove('show');
-            }
-
-            showIOSInstructions() {
-                this.iosInstructions.classList.add('show');
-            }
-
-            hideIOSInstructions() {
-                this.iosInstructions.classList.remove('show');
-            }
-
-            initMobileSupport() {
-                const activateAudio = () => {
-                    if (!this.userInteracted) {
-                        this.userInteracted = true;
-                        console.log('Áudio ativado por interação do usuário');
-                        
-                        // Para iOS, destravar áudio
-                        if (this.isIOS) {
-                            this.unlockIOSAudio();
-                        }
-                        
-                        // Remover listeners
-                        document.removeEventListener('touchstart', activateAudio);
-                        document.removeEventListener('click', activateAudio);
-                    }
-                };
-
-                // Adicionar listeners para interação
-                document.addEventListener('touchstart', activateAudio, { passive: true });
-                document.addEventListener('click', activateAudio, { passive: true });
-                
-                // Para iOS, também tentar destravar no primeiro play
-                this.playBtn.addEventListener('click', () => {
-                    if (this.isIOS && !this.userInteracted) {
-                        this.unlockIOSAudio();
-                    }
-                });
-            }
-
-            unlockIOSAudio() {
-                // Técnica para destravar áudio no iOS
-                try {
-                    // Criar e tocar áudio silencioso
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    const audioContext = new AudioContext();
-                    
-                    // Criar buffer vazio
-                    const buffer = audioContext.createBuffer(1, 1, 22050);
-                    const source = audioContext.createBufferSource();
-                    source.buffer = buffer;
-                    source.connect(audioContext.destination);
-                    
-                    // Tocar
-                    source.start(0);
-                    
-                    // Suspender após tocar
-                    setTimeout(() => {
-                        audioContext.suspend();
-                    }, 100);
-                    
-                    console.log('Áudio destravado para iOS');
-                    this.userInteracted = true;
-                    
-                } catch (error) {
-                    console.log('Erro ao destravar áudio iOS:', error);
-                }
-            }
-
-            initVUMeter() {
-                // Criar barras para o modo espectro (40 barras)
-                for (let i = 0; i < 40; i++) {
-                    const bar = document.createElement('div');
-                    bar.className = 'vu-bar';
-                    bar.style.height = '2px';
-                    bar.style.backgroundColor = 'var(--primary)';
-                    this.vuBars.appendChild(bar);
-                    this.barElements.push(bar);
-                }
-                
-                // Criar barras para o modo onda (80 barras para maior resolução)
-                for (let i = 0; i < 80; i++) {
-                    const waveBar = document.createElement('div');
-                    waveBar.className = 'wave-bar';
-                    waveBar.style.height = '1px';
-                    waveBar.style.backgroundColor = 'var(--primary)';
-                    this.vuWave.appendChild(waveBar);
-                    this.waveBars.push(waveBar);
-                }
-                
-                // Inicializar histórico
-                for (let i = 0; i < this.historySize; i++) {
-                    this.historyBuffer.push(new Float32Array(80).fill(0));
-                }
-                
-                this.initAudioContext();
-            }
-
-            async initAudioContext() {
-                try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    this.audioContext = new AudioContext();
-                    
-                    // Analisador para espectro de frequência
-                    this.analyser = this.audioContext.createAnalyser();
-                    this.analyser.smoothingTimeConstant = this.smoothingTimeConstant;
-                    this.analyser.fftSize = 2048;
-                    
-                    // Analisador para forma de onda (domínio do tempo)
-                    this.analyserTime = this.audioContext.createAnalyser();
-                    this.analyserTime.smoothingTimeConstant = this.smoothingTimeConstant;
-                    this.analyserTime.fftSize = 2048;
-                    
-                    // Criar source a partir do elemento de áudio
-                    this.source = this.audioContext.createMediaElementSource(this.audio);
-                    
-                    // Conectar source aos analisadores e ao destino
-                    this.source.connect(this.analyser);
-                    this.source.connect(this.analyserTime);
-                    this.analyser.connect(this.audioContext.destination);
-                    this.analyserTime.connect(this.audioContext.destination);
-                    
-                    // Criar buffers para dados
-                    this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
-                    this.timeDomainData = new Uint8Array(this.analyserTime.frequencyBinCount);
-                    
-                    console.log('AudioContext inicializado com sucesso');
-                    
-                } catch (error) {
-                    console.error('Erro ao inicializar AudioContext:', error);
-                    this.analyser = null;
-                    this.analyserTime = null;
-                }
-            }
-
-            initEventListeners() {
-                this.audio.addEventListener('timeupdate', () => this.updateProgress());
-                this.audio.addEventListener('loadedmetadata', () => {
-                    if (!isNaN(this.audio.duration)) {
-                        this.totalTime.textContent = this.formatTime(this.audio.duration);
-                    }
-                });
-                this.audio.addEventListener('ended', () => this.handleTrackEnd());
-                
-                this.playBtn.addEventListener('click', () => this.togglePlay());
-                
-                this.loopBtn.addEventListener('click', () => {
-                    this.isLooping = !this.isLooping;
-                    this.loopBtn.classList.toggle('active', this.isLooping);
-                    this.audio.loop = this.isLooping;
-                });
-                
-                this.progressBar.addEventListener('click', (e) => {
-                    if (this.isMobile && !this.userInteracted) return;
-                    
-                    const rect = this.progressBar.getBoundingClientRect();
-                    const percent = (e.clientX - rect.left) / rect.width;
-                    this.audio.currentTime = percent * this.audio.duration;
-                });
-                
-                this.volumeSlider.addEventListener('click', (e) => {
-                    if (this.isMobile && !this.userInteracted) return;
-                    
-                    const rect = this.volumeSlider.getBoundingClientRect();
-                    const percent = (e.clientX - rect.left) / rect.width;
-                    this.audio.volume = Math.max(0, Math.min(1, percent));
-                    this.volumeFill.style.width = `${this.audio.volume * 100}%`;
-                });
-                
-                this.vuModeBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.toggleVUMode();
-                });
-                
-                this.vuContainer.addEventListener('click', () => {
-                    this.toggleVUMode();
-                });
-                
-                // Fechar instruções iOS
-                this.iosInstructionsClose.addEventListener('click', () => {
-                    this.hideIOSInstructions();
-                });
-            }
-
-            initShareFunctionality() {
-                this.shareBtn.addEventListener('click', () => {
-                    this.showShareModal();
-                });
-                
-                this.shareCloseBtn.addEventListener('click', () => {
-                    this.hideShareModal();
-                });
-                
-                this.shareModal.addEventListener('click', (e) => {
-                    if (e.target === this.shareModal) {
-                        this.hideShareModal();
-                    }
-                });
-                
-                this.copyUrlBtn.addEventListener('click', () => {
-                    this.copyToClipboard();
-                });
-                
-                this.whatsappShareBtn.addEventListener('click', () => {
-                    this.shareOnWhatsApp();
-                });
-                
-                this.telegramShareBtn.addEventListener('click', () => {
-                    this.shareOnTelegram();
-                });
-                
-                this.twitterShareBtn.addEventListener('click', () => {
-                    this.shareOnTwitter();
-                });
-                
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape' && this.shareModal.classList.contains('active')) {
-                        this.hideShareModal();
-                    }
-                });
-            }
-
-            generateShareUrl() {
-                const currentUrl = window.location.href;
-                
-                let shareUrl = currentUrl;
-                
-                if (!shareUrl.includes('?') && this.audio.src) {
-                    const params = new URLSearchParams();
-                    
-                    params.append('audio', encodeURIComponent(this.audio.src));
-                    
-                    if (this.trackTitle.textContent !== 'Winamp Player') {
-                        params.append('track', encodeURIComponent(this.trackTitle.textContent));
-                    }
-                    if (this.trackArtist.textContent !== 'Clique em Play') {
-                        params.append('artist', encodeURIComponent(this.trackArtist.textContent));
-                    }
-                    
-                    if (!this.albumArt.src.includes('data:image/svg+xml')) {
-                        params.append('cover', encodeURIComponent(this.albumArt.src));
-                    }
-                    
-                    shareUrl = window.location.origin + window.location.pathname + '?' + params.toString();
-                }
-                
-                return shareUrl;
-            }
-
-            showShareModal() {
-                const shareUrl = this.generateShareUrl();
-                
-                this.shareUrlInput.value = shareUrl;
-                
-                this.shareUrlInput.select();
-                this.shareUrlInput.setSelectionRange(0, shareUrl.length);
-                
-                this.shareModal.classList.add('active');
-                
-                this.shareUrlInput.focus();
-            }
-
-            hideShareModal() {
-                this.shareModal.classList.remove('active');
-            }
-
-            async copyToClipboard() {
-                try {
-                    await navigator.clipboard.writeText(this.shareUrlInput.value);
-                    this.showToast('Link copiado para a área de transferência!');
-                } catch (err) {
-                    this.shareUrlInput.select();
-                    document.execCommand('copy');
-                    this.showToast('Link copiado!');
-                }
-            }
-
-            shareOnWhatsApp() {
-                const shareUrl = this.shareUrlInput.value;
-                const text = encodeURIComponent(`🎵 Ouça esta música no Winamp Player: ${shareUrl}`);
-                window.open(`https://wa.me/?text=${text}`, '_blank');
-            }
-
-            shareOnTelegram() {
-                const shareUrl = this.shareUrlInput.value;
-                const text = encodeURIComponent(`🎵 Ouça esta música no Winamp Player: ${shareUrl}`);
-                window.open(`https://t.me/share/url?url=${shareUrl}&text=${text}`, '_blank');
-            }
-
-            shareOnTwitter() {
-                const shareUrl = this.shareUrlInput.value;
-                const text = encodeURIComponent(`🎵 Ouvindo no Winamp Player: ${shareUrl}`);
-                window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
-            }
-
-            showToast(message) {
-                this.toast.textContent = message;
-                this.toast.classList.add('show');
-                
-                setTimeout(() => {
-                    this.toast.classList.remove('show');
-                }, 3000);
-            }
-
-            setVUMode(mode) {
-                this.vuMode = mode;
-                this.vuContent.className = 'vu-content';
-                this.vuContent.classList.add(`vu-${mode}-mode`);
-                
-                if (mode === 'bars') {
-                    this.vuModeText.textContent = 'Onda';
-                    this.vuModeBtn.title = 'Mudar para modo Onda';
-                } else {
-                    this.vuModeText.textContent = 'Barras';
-                    this.vuModeBtn.title = 'Mudar para modo Barras';
-                }
-            }
-
-            toggleVUMode() {
-                if (this.vuMode === 'bars') {
-                    this.setVUMode('wave');
-                } else {
-                    this.setVUMode('bars');
-                }
-            }
-
-            async togglePlay() {
-                if (this.isMobile && !this.userInteracted) {
+            
+            setVUMode('bars');
+        }
+        
+        // CONFIGURAR EVENT LISTENERS
+        function setupEventListeners() {
+            // Botão play/pause
+            playBtn.addEventListener('click', () => {
+                // Para mobile, verificar se já destravou
+                if (isMobile && !userInteracted) {
                     alert('Toque em qualquer lugar da tela primeiro para ativar o áudio.');
                     return;
                 }
-
-                if (!this.audio.src) {
-                    this.loadDemoTrack();
-                    return;
+                togglePlay();
+            });
+            
+            // Botão loop
+            loopBtn.addEventListener('click', () => {
+                isLooping = !isLooping;
+                loopBtn.classList.toggle('active', isLooping);
+                audio.loop = isLooping;
+            });
+            
+            // Botão modo VU
+            vuModeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleVUMode();
+            });
+            
+            vuContent.addEventListener('click', () => {
+                toggleVUMode();
+            });
+            
+            // Barra de progresso
+            progressBar.addEventListener('click', (e) => {
+                const rect = progressBar.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                audio.currentTime = percent * audio.duration;
+            });
+            
+            // Controle de volume
+            volumeSlider.addEventListener('click', (e) => {
+                const rect = volumeSlider.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                audio.volume = Math.max(0, Math.min(1, percent));
+                volumeFill.style.width = `${audio.volume * 100}%`;
+            });
+            
+            // Eventos do áudio
+            audio.addEventListener('timeupdate', updateProgress);
+            audio.addEventListener('loadedmetadata', () => {
+                if (!isNaN(audio.duration)) {
+                    totalTime.textContent = formatTime(audio.duration);
+                    console.log('Metadados carregados, duração:', audio.duration);
                 }
-
-                try {
-                    if (this.isPlaying) {
-                        // Pausar reprodução
-                        this.audio.pause();
-                        this.isPlaying = false;
-                        this.playIcon.className = 'fas fa-play';
-                        this.albumArt.classList.remove('rotating');
-                        this.albumArt.classList.add('paused');
-                        this.stopVUMeter();
-                        
-                        // Limpar recursos de background
-                        this.stopBackgroundChecks();
-                        this.stopSilentAudio();
-                        
-                        // Liberar Wake Lock se existir
-                        if (this.wakeLock) {
-                            await this.wakeLock.release();
-                            this.wakeLock = null;
-                        }
-                        
-                    } else {
-                        // Iniciar reprodução
-                        this.audio.muted = false;
-                        
-                        // Para iOS, recarregar se necessário
-                        if (this.isIOS) {
-                            this.audio.load();
-                        }
-                        
-                        // Garantir que o AudioContext esteja ativo
-                        if (this.audioContext && this.audioContext.state === 'suspended') {
-                            await this.audioContext.resume();
-                        }
-                        
-                        // Adquirir Wake Lock para Android
-                        if (this.isAndroid && 'wakeLock' in navigator && !this.wakeLock) {
-                            try {
-                                this.wakeLock = await navigator.wakeLock.request('screen');
-                            } catch (err) {
-                                console.log('Não foi possível adquirir Wake Lock:', err);
-                            }
-                        }
-                        
-                        // Tocar áudio
-                        await this.audio.play();
-                        this.isPlaying = true;
-                        this.playIcon.className = 'fas fa-pause';
-                        this.albumArt.classList.add('rotating');
-                        this.albumArt.classList.remove('paused');
-                        this.startVUMeter();
-                    }
-                } catch (error) {
-                    console.error('Erro ao controlar reprodução:', error);
-                    
-                    if (error.name === 'NotAllowedError') {
-                        alert('Permissão de áudio necessária. Toque em qualquer lugar da tela primeiro.');
-                    } else if (this.isIOS) {
-                        // Para iOS, mostrar instruções específicas
-                        this.showIOSInstructions();
-                    }
-                }
-            }
-
-            startVUMeter() {
-                if (!this.isPlaying) return;
+            });
+            
+            audio.addEventListener('canplay', () => {
+                console.log('Áudio pronto para tocar');
+            });
+            
+            audio.addEventListener('error', (e) => {
+                console.error('Erro no áudio:', e);
+                console.error('Código do erro:', audio.error);
+                trackTitle.textContent = 'Erro ao carregar';
+                trackArtist.textContent = 'Verifique a URL do áudio';
                 
-                const updateVU = (timestamp) => {
-                    if (!this.isPlaying) {
-                        cancelAnimationFrame(this.vuAnimationId);
-                        this.vuAnimationId = null;
-                        return;
-                    }
-                    
-                    if (timestamp - this.lastUpdateTime >= this.updateInterval) {
-                        this.lastUpdateTime = timestamp;
-                        
-                        if (this.audioContext && this.audioContext.state === 'running') {
-                            if (this.vuMode === 'bars') {
-                                this.updateBarsMode();
-                            } else {
-                                this.updateWaveMode();
-                            }
-                        } else {
-                            // Fallback para simulação
-                            if (this.vuMode === 'bars') {
-                                this.updateBarsWithSimulation();
-                            } else {
-                                this.updateWaveWithSimulation();
-                            }
-                        }
-                    }
-                    
-                    this.vuAnimationId = requestAnimationFrame(updateVU);
-                };
+                // Tentar carregar música demo em caso de erro
+                setTimeout(() => {
+                    loadDemoTrack();
+                }, 2000);
+            });
+            
+            audio.addEventListener('ended', handleTrackEnd);
+            audio.addEventListener('play', () => {
+                isPlaying = true;
+                playIcon.className = 'fas fa-pause';
+                albumArt.classList.add('rotating');
+                albumArt.classList.remove('paused');
+                startVUMeter();
                 
-                this.vuAnimationId = requestAnimationFrame(updateVU);
-            }
-
-            updateBarsMode() {
-                if (!this.analyser || !this.frequencyData) return;
-                
-                this.analyser.getByteFrequencyData(this.frequencyData);
-                
-                const totalBars = this.barElements.length;
-                const freqBinCount = this.frequencyData.length;
-                
-                for (let i = 0; i < totalBars; i++) {
-                    const startBin = Math.floor((i / totalBars) * freqBinCount);
-                    const endBin = Math.floor(((i + 1) / totalBars) * freqBinCount);
-                    
-                    let sum = 0;
-                    let count = 0;
-                    for (let j = startBin; j < endBin && j < freqBinCount; j++) {
-                        sum += this.frequencyData[j];
-                        count++;
-                    }
-                    
-                    const average = count > 0 ? sum / count : 0;
-                    
-                    let normalizedValue = average / 255;
-                    
-                    normalizedValue = Math.pow(normalizedValue, 1.5);
-                    
-                    let volumeBoost = 1.0;
-                    if (normalizedValue < 0.1) volumeBoost = 1.5;
-                    else if (normalizedValue < 0.3) volumeBoost = 1.2;
-                    
-                    normalizedValue = Math.min(1, normalizedValue * volumeBoost);
-                    
-                    const height = 0.02 + (normalizedValue * 0.93);
-                    
-                    const bar = this.barElements[i];
-                    bar.style.height = `${height * 100}%`;
-                    bar.style.opacity = Math.max(0.3, Math.min(1, normalizedValue * 1.5));
-                    
-                    const frequencyPosition = i / totalBars;
-                    const intensity = normalizedValue;
-                    
-                    let r, g, b;
-                    
-                    if (frequencyPosition < 0.33) {
-                        r = 0;
-                        g = 200;
-                        b = 83 + (frequencyPosition * 3 * 50);
-                    } else if (frequencyPosition < 0.66) {
-                        r = 0;
-                        g = 200 - ((frequencyPosition - 0.33) * 3 * 100);
-                        b = 200;
-                    } else {
-                        r = 0;
-                        g = 50 - ((frequencyPosition - 0.66) * 3 * 25);
-                        b = 200 - ((frequencyPosition - 0.66) * 3 * 50);
-                    }
-                    
-                    const darkenFactor = 1 - (intensity * 0.1);
-                    r = Math.floor(r * darkenFactor);
-                    g = Math.floor(g * darkenFactor);
-                    b = Math.floor(b * darkenFactor);
-                    
-                    bar.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
-                }
-            }
-
-            updateWaveMode() {
-                if (!this.analyserTime || !this.timeDomainData) return;
-                
-                this.analyserTime.getByteTimeDomainData(this.timeDomainData);
-                
-                const totalWaveBars = this.waveBars.length;
-                const timeDataLength = this.timeDomainData.length;
-                
-                const currentData = new Float32Array(totalWaveBars);
-                
-                for (let i = 0; i < totalWaveBars; i++) {
-                    const sampleIndex = Math.floor((i / totalWaveBars) * timeDataLength);
-                    const sampleValue = (this.timeDomainData[sampleIndex] - 128) / 128;
-                    currentData[i] = sampleValue;
+                if (mediaSession) {
+                    mediaSession.playbackState = 'playing';
                 }
                 
-                this.historyBuffer.push(currentData);
-                if (this.historyBuffer.length > this.historySize) {
-                    this.historyBuffer.shift();
+                // Ativar Wake Lock para manter tela ativa
+                if ('wakeLock' in navigator && !wakeLock) {
+                    navigator.wakeLock.request('screen').then(wl => {
+                        wakeLock = wl;
+                        console.log('Wake Lock ativado');
+                    }).catch(() => {});
                 }
-                
-                const smoothedData = new Float32Array(totalWaveBars).fill(0);
-                for (let j = 0; j < this.historyBuffer.length; j++) {
-                    for (let i = 0; i < totalWaveBars; i++) {
-                        smoothedData[i] += this.historyBuffer[j][i];
-                    }
-                }
-                for (let i = 0; i < totalWaveBars; i++) {
-                    smoothedData[i] /= this.historyBuffer.length;
-                }
-                
-                for (let i = 0; i < totalWaveBars; i++) {
-                    const waveValue = smoothedData[i];
-                    
-                    let amplitude = Math.abs(waveValue);
-                    
-                    amplitude = Math.pow(amplitude, 0.3);
-                    
-                    const height = 0.05 + (amplitude * 0.9);
-                    
-                    const waveBar = this.waveBars[i];
-                    waveBar.style.height = `${height * 100}%`;
-                    waveBar.style.opacity = Math.max(0.4, Math.min(1, amplitude * 1.8));
-                    
-                    const position = i / totalWaveBars;
-                    const isPositive = waveValue >= 0;
-                    
-                    let r, g, b;
-                    
-                    if (isPositive) {
-                        r = Math.floor(0 * amplitude);
-                        g = Math.floor(200 * amplitude);
-                        b = Math.floor(83 * amplitude);
-                    } else {
-                        r = Math.floor(30 * amplitude);
-                        g = Math.floor(144 * amplitude);
-                        b = Math.floor(255 * amplitude);
-                    }
-                    
-                    const positionFactor = position * 0.3;
-                    r = Math.min(255, Math.floor(r * (1 + positionFactor)));
-                    g = Math.min(255, Math.floor(g * (1 - positionFactor * 0.5)));
-                    b = Math.min(255, Math.floor(b * (1 + positionFactor)));
-                    
-                    waveBar.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
-                }
-            }
-
-            updateBarsWithSimulation() {
-                const time = Date.now() * 0.001;
-                const totalBars = this.barElements.length;
-                
-                for (let i = 0; i < totalBars; i++) {
-                    const position = i / totalBars;
-                    
-                    const bass = Math.sin(time * 2 + position * Math.PI) * 0.3;
-                    const mid = Math.sin(time * 5 + position * Math.PI * 2) * 0.2;
-                    const treble = Math.sin(time * 10 + position * Math.PI * 4) * 0.1;
-                    const noise = (Math.random() - 0.5) * 0.05;
-                    
-                    const simulatedValue = 0.3 + bass + mid + treble + noise;
-                    const height = Math.max(0.02, Math.min(0.95, simulatedValue));
-                    
-                    const bar = this.barElements[i];
-                    bar.style.height = `${height * 100}%`;
-                    bar.style.opacity = Math.max(0.3, height);
-                    
-                    const intensity = height;
-                    const r = Math.floor(0 * intensity);
-                    const g = Math.floor(200 * intensity);
-                    const b = Math.floor(83 * intensity);
-                    bar.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
-                }
-            }
-
-            updateWaveWithSimulation() {
-                const time = Date.now() * 0.002;
-                const totalWaveBars = this.waveBars.length;
-                
-                for (let i = 0; i < totalWaveBars; i++) {
-                    const position = i / totalWaveBars;
-                    
-                    const fundamental = Math.sin(time + position * Math.PI * 4) * 0.4;
-                    const harmonic1 = Math.sin(time * 2 + position * Math.PI * 8) * 0.2;
-                    const harmonic2 = Math.sin(time * 4 + position * Math.PI * 16) * 0.1;
-                    
-                    const waveValue = fundamental + harmonic1 + harmonic2;
-                    const amplitude = Math.abs(waveValue);
-                    const height = 0.1 + (amplitude * 0.8);
-                    
-                    const waveBar = this.waveBars[i];
-                    waveBar.style.height = `${height * 100}%`;
-                    waveBar.style.opacity = Math.max(0.4, amplitude * 1.5);
-                    
-                    const isPositive = waveValue >= 0;
-                    let r, g, b;
-                    
-                    if (isPositive) {
-                        r = 0;
-                        g = Math.floor(200 * amplitude);
-                        b = Math.floor(83 * amplitude);
-                    } else {
-                        r = Math.floor(30 * amplitude);
-                        g = Math.floor(144 * amplitude);
-                        b = Math.floor(255 * amplitude);
-                    }
-                    
-                    waveBar.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
-                }
-            }
-
-            stopVUMeter() {
-                if (this.vuAnimationId) {
-                    cancelAnimationFrame(this.vuAnimationId);
-                    this.vuAnimationId = null;
-                }
-                
-                this.barElements.forEach(bar => {
-                    bar.style.height = '2px';
-                    bar.style.opacity = '0.2';
-                    bar.style.backgroundColor = 'var(--primary)';
-                });
-                
-                this.waveBars.forEach(bar => {
-                    bar.style.height = '1px';
-                    bar.style.opacity = '0.2';
-                    bar.style.backgroundColor = 'var(--primary)';
-                });
-            }
-
-            pauseVisualEffects() {
-                if (this.vuAnimationId) {
-                    cancelAnimationFrame(this.vuAnimationId);
-                    this.vuAnimationId = null;
-                }
-                this.albumArt.classList.add('paused');
-            }
-
-            resumeVisualEffects() {
-                if (this.isPlaying) {
-                    this.startVUMeter();
-                }
-                this.albumArt.classList.remove('paused');
-            }
-
-            handleTrackEnd() {
-                if (!this.isLooping) {
-                    this.isPlaying = false;
-                    this.playIcon.className = 'fas fa-play';
-                    this.albumArt.classList.remove('rotating');
-                    this.albumArt.classList.add('paused');
-                    this.stopVUMeter();
-                    
-                    // Limpar recursos de background
-                    this.stopBackgroundChecks();
-                    this.stopSilentAudio();
-                    
-                    // Liberar Wake Lock
-                    if (this.wakeLock) {
-                        this.wakeLock.release().then(() => {
-                            this.wakeLock = null;
-                        });
-                    }
-                }
-            }
-
-            checkUrlParams() {
-                const params = new URLSearchParams(window.location.search);
-                const audioUrl = params.get('audio');
-                const track = params.get('track');
-                const artist = params.get('artist');
-                const cover = params.get('cover');
-                
-                if (audioUrl) {
-                    const trackData = {
-                        url: decodeURIComponent(audioUrl),
-                        title: track ? decodeURIComponent(track) : 'Música',
-                        artist: artist ? decodeURIComponent(artist) : 'Artista',
-                        cover: cover ? decodeURIComponent(cover) : 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%2300c853"/><circle cx="100" cy="100" r="50" fill="white"/></svg>'
-                    };
-                    
-                    this.loadTrack(trackData);
-                }
-            }
-
-            updatePageTitle(trackTitle, artist) {
-                let titleText = 'Winamp Player';
-                
-                if (trackTitle && artist) {
-                    titleText = `${trackTitle} - ${artist}`;
-                } else if (trackTitle) {
-                    titleText = trackTitle;
-                } else if (artist) {
-                    titleText = artist;
-                }
-                
-                document.title = titleText;
-            }
-
-            loadTrack(track) {
-                this.audio.src = track.url;
-                this.trackTitle.textContent = track.title;
-                this.trackArtist.textContent = track.artist;
-                this.albumArt.src = track.cover;
-                
-                this.updatePageTitle(track.title, track.artist);
-                
-                this.audio.load();
-                
-                this.isPlaying = false;
-                this.playIcon.className = 'fas fa-play';
-                this.albumArt.classList.remove('rotating');
-                this.albumArt.classList.add('paused');
-                this.stopVUMeter();
-            }
-
-            loadDemoTrack() {
-                const demoUrl = 'https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3';
-                const track = {
-                    url: demoUrl,
-                    title: 'Tech House Vibes',
-                    artist: 'Mixkit',
-                    cover: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%2300c853"/><circle cx="100" cy="100" r="50" fill="white"/></svg>'
-                };
-                this.loadTrack(track);
-            }
-
-            updateProgress() {
-                if (!this.audio.duration || isNaN(this.audio.duration)) return;
-                const percent = (this.audio.currentTime / this.audio.duration) * 100;
-                this.progressFill.style.width = `${percent}%`;
-                this.currentTime.textContent = this.formatTime(this.audio.currentTime);
-            }
-
-            formatTime(seconds) {
-                if (isNaN(seconds)) return '0:00';
-                const mins = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            });
+            
+            audio.addEventListener('pause', () => {
+                console.log('Áudio pausado');
+            });
+            
+            // Suporte a toque para mobile
+            if (isMobile) {
+                setupTouchControls();
             }
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            window.player = new WinampPlayer();
+        
+        // CONTROLES DE TOQUE
+        function setupTouchControls() {
+            let isDragging = false;
+            
+            progressBar.addEventListener('touchstart', (e) => {
+                if (!userInteracted) return;
+                isDragging = true;
+                handleProgressTouch(e);
+            }, { passive: true });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!userInteracted || !isDragging) return;
+                e.preventDefault();
+                handleProgressTouch(e);
+            }, { passive: false });
+            
+            document.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+            
+            let isVolumeDragging = false;
+            
+            volumeSlider.addEventListener('touchstart', (e) => {
+                if (!userInteracted) return;
+                isVolumeDragging = true;
+                handleVolumeTouch(e);
+            }, { passive: true });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!userInteracted || !isVolumeDragging) return;
+                e.preventDefault();
+                handleVolumeTouch(e);
+            }, { passive: false });
+            
+            document.addEventListener('touchend', () => {
+                isVolumeDragging = false;
+            });
+        }
+        
+        function handleProgressTouch(e) {
+            const touch = e.touches[0];
+            const rect = progressBar.getBoundingClientRect();
+            const percent = (touch.clientX - rect.left) / rect.width;
+            audio.currentTime = percent * audio.duration;
+        }
+        
+        function handleVolumeTouch(e) {
+            const touch = e.touches[0];
+            const rect = volumeSlider.getBoundingClientRect();
+            const percent = (touch.clientX - rect.left) / rect.width;
+            audio.volume = Math.max(0, Math.min(1, percent));
+            volumeFill.style.width = `${audio.volume * 100}%`;
+        }
+        
+        // FUNÇÕES DE REPRODUÇÃO
+        function playAudio() {
+            if (isMobile && !userInteracted) {
+                alert('Toque em qualquer lugar da tela primeiro para ativar o áudio.');
+                return;
+            }
+            
+            if (!audio.src || audio.src === '') {
+                console.error('Nenhuma fonte de áudio carregada');
+                alert('Erro: Nenhuma música carregada');
+                return;
+            }
+            
+            audio.play().then(() => {
+                console.log('🎵 Música tocando!');
+            }).catch(error => {
+                console.error('Erro ao tocar:', error);
+                alert('Erro ao reproduzir: ' + error.message);
+            });
+        }
+        
+        function pauseAudio() {
+            audio.pause();
+            isPlaying = false;
+            playIcon.className = 'fas fa-play';
+            albumArt.classList.remove('rotating');
+            albumArt.classList.add('paused');
+            stopVUMeter();
+            
+            if (mediaSession) {
+                mediaSession.playbackState = 'paused';
+            }
+            
+            // Liberar Wake Lock
+            if (wakeLock) {
+                wakeLock.release();
+                wakeLock = null;
+            }
+            
+            // Limpar intervalo
+            if (keepAliveInterval) {
+                clearInterval(keepAliveInterval);
+                keepAliveInterval = null;
+            }
+        }
+        
+        function togglePlay() {
+            if (isPlaying) {
+                pauseAudio();
+            } else {
+                playAudio();
+            }
+        }
+        
+        // VU METER
+        function setVUMode(mode) {
+            vuMode = mode;
+            vuContent.className = 'vu-content';
+            vuContent.classList.add(`vu-${mode}-mode`);
+            
+            if (mode === 'bars') {
+                vuModeText.textContent = 'Onda';
+                vuModeBtn.title = 'Mudar para modo Onda';
+            } else {
+                vuModeText.textContent = 'Barras';
+                vuModeBtn.title = 'Mudar para modo Barras';
+            }
+        }
+        
+        function toggleVUMode() {
+            if (vuMode === 'bars') {
+                setVUMode('wave');
+            } else {
+                setVUMode('bars');
+            }
+        }
+        
+        function startVUMeter() {
+            if (!isPlaying) return;
+            
+            const updateVU = () => {
+                if (!isPlaying) {
+                    cancelAnimationFrame(vuAnimationId);
+                    vuAnimationId = null;
+                    return;
+                }
+                
+                const simulatedValue = Math.random() * 0.5 + 0.3;
+                
+                if (vuMode === 'bars') {
+                    updateBarsMode(simulatedValue);
+                } else {
+                    updateWaveMode(simulatedValue);
+                }
+                
+                vuAnimationId = requestAnimationFrame(updateVU);
+            };
+            
+            vuAnimationId = requestAnimationFrame(updateVU);
+        }
+        
+        function updateBarsMode(normalized) {
+            const bars = vuBars.querySelectorAll('.vu-bar');
+            
+            bars.forEach((bar, index) => {
+                const baseHeight = 0.1 + (Math.sin(Date.now() * 0.005 + index * 0.3) * 0.1 + 0.1);
+                const barHeight = Math.max(0.05, Math.min(1, baseHeight * normalized));
+                
+                bar.style.height = `${barHeight * 100}%`;
+                bar.style.opacity = Math.max(0.3, barHeight);
+                
+                const intensity = barHeight;
+                const r = Math.floor(0 * intensity);
+                const g = Math.floor(200 * intensity);
+                const b = Math.floor(83 * intensity);
+                bar.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+            });
+        }
+        
+        function updateWaveMode(normalized) {
+            waveBars.forEach((bar, index) => {
+                const wavePattern = Math.sin(Date.now() * 0.003 + index * 0.2) * 0.15 + 0.2;
+                const barHeight = Math.max(0.05, Math.min(1, wavePattern * normalized));
+                
+                bar.style.height = `${barHeight * 100}%`;
+                bar.style.opacity = Math.max(0.4, barHeight);
+                
+                const intensity = barHeight;
+                const hue = 120 + intensity * 40;
+                bar.style.backgroundColor = `hsl(${hue}, 100%, ${30 + intensity * 40}%)`;
+            });
+            
+            if (normalized > 0.1) {
+                waveAnimation.style.opacity = '0.6';
+                waveAnimation.style.animationPlayState = 'running';
+            } else {
+                waveAnimation.style.opacity = '0.2';
+                waveAnimation.style.animationPlayState = 'paused';
+            }
+        }
+        
+        function stopVUMeter() {
+            if (vuAnimationId) {
+                cancelAnimationFrame(vuAnimationId);
+                vuAnimationId = null;
+            }
+            
+            const bars = vuBars.querySelectorAll('.vu-bar');
+            bars.forEach(bar => {
+                bar.style.height = '5px';
+                bar.style.opacity = '0.2';
+                bar.style.backgroundColor = 'var(--primary)';
+            });
+            
+            waveBars.forEach(bar => {
+                bar.style.height = '5px';
+                bar.style.opacity = '0.2';
+                bar.style.backgroundColor = 'var(--primary)';
+            });
+            
+            waveAnimation.style.opacity = '0.2';
+            waveAnimation.style.animationPlayState = 'paused';
+        }
+        
+        // FUNÇÕES UTILITÁRIAS
+        function updateProgress() {
+            if (!isNaN(audio.duration)) {
+                const percent = (audio.currentTime / audio.duration) * 100;
+                progressFill.style.width = `${percent}%`;
+                currentTime.textContent = formatTime(audio.currentTime);
+                
+                // Atualizar Media Session
+                if (mediaSession && audio.duration > 0) {
+                    mediaSession.setPositionState({
+                        duration: audio.duration,
+                        playbackRate: audio.playbackRate,
+                        position: audio.currentTime
+                    });
+                }
+            }
+        }
+        
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+        
+        function handleTrackEnd() {
+            if (!isLooping) {
+                pauseAudio();
+            }
+        }
+        
+        function loadDemoTrack() {
+            const demoUrl = 'https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3';
+            audio.src = demoUrl;
+            audio.load();
+            
+            trackTitle.textContent = 'Tech House Vibes';
+            trackArtist.textContent = 'Mixkit';
+            
+            // Atualizar Media Session
+            if (mediaSession) {
+                mediaSession.metadata = new MediaMetadata({
+                    title: 'Tech House Vibes',
+                    artist: 'Mixkit',
+                    artwork: [
+                        { src: albumArt.src, sizes: '120x120', type: 'image/svg+xml' }
+                    ]
+                });
+            }
+            
+            console.log('Música demo carregada');
+        }
+        
+        // INICIAR QUANDO A PÁGINA CARREGAR
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // LIMPAR RECURSOS AO SAIR
+        window.addEventListener('beforeunload', () => {
+            if (keepAliveInterval) {
+                clearInterval(keepAliveInterval);
+            }
+            
+            if (vuAnimationId) {
+                cancelAnimationFrame(vuAnimationId);
+            }
+            
+            if (wakeLock) {
+                wakeLock.release();
+            }
+            
+            audio.pause();
+            audio.src = '';
         });
+        
+        // PARA DEBUG
+        window.debugPlayer = {
+            play: playAudio,
+            pause: pauseAudio,
+            toggle: togglePlay,
+            getState: () => ({
+                isPlaying,
+                isLooping,
+                userInteracted,
+                isMobile,
+                isIOS,
+                isAndroid,
+                vuMode,
+                audioSrc: audio.src,
+                audioReadyState: audio.readyState,
+                audioError: audio.error
+            }),
+            loadUrl: (url) => {
+                audio.src = url;
+                audio.load();
+                console.log('URL carregada:', url);
+            }
+        };
     </script>
 </body>
 </html>
