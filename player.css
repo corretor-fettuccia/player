@@ -1,0 +1,438 @@
+:root {
+    --primary: #00c853;
+    --dark: #1a1a1a;
+    --light: #e0e0e0;
+    --gray: #666;
+}
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--dark);
+    color: var(--light);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.container {
+    width: 380px;
+    max-width: 100%;
+    background: #222;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #333;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.player-header {
+    background: #0d0d0d;
+    padding: 12px 15px;
+    border-bottom: 1px solid #333;
+    min-height: 55px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo-icon {
+    color: var(--primary);
+    font-size: 1.2rem;
+}
+
+.track-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.track-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.track-artist {
+    font-size: 0.8rem;
+    color: var(--gray);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1;
+}
+
+.album-section {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    background: linear-gradient(180deg, #0d0d0d 0%, #151515 100%);
+}
+
+.album-art {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--primary);
+    box-shadow: 0 0 30px rgba(0, 200, 83, 0.4);
+    transition: transform 0.3s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.album-art.rotating {
+    animation: rotate 15s linear infinite;
+    animation-play-state: running;
+}
+
+.album-art.paused {
+    animation-play-state: paused;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.controls-section {
+    padding: 20px;
+    background: #151515;
+}
+
+.progress-container {
+    margin-bottom: 20px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #333;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-bottom: 5px;
+    touch-action: none;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #4caf50);
+    width: 0%;
+    border-radius: 3px;
+    transition: width 0.1s linear;
+}
+
+.time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--gray);
+    font-family: monospace;
+}
+
+.main-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin: 25px 0;
+}
+
+.control-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #2a2a2a;
+    color: var(--light);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.control-btn:active {
+    transform: scale(0.95);
+}
+
+.control-btn:hover {
+    background: #333;
+}
+
+.control-btn.active {
+    background: var(--primary);
+    color: #000;
+}
+
+.play-btn {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--primary), #4caf50);
+    color: #000;
+    font-size: 1.1rem;
+}
+
+.play-btn:hover {
+    background: linear-gradient(135deg, #00e676, #66bb6a);
+}
+
+.vu-container {
+/*
+    height: 120px;
+    background: #0d0d0d;
+    border-radius: 8px;
+    margin: 20px 0;
+    padding: 12px;
+    border: 1px solid #333;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.3s ease; */
+    
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0 !important;
+}
+
+.vu-container:active {
+    transform: scale(0.98);
+}
+
+.vu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.vu-label {
+    font-size: 0.75rem;
+    color: var(--gray);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.vu-mode-btn {
+    background: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    font-size: 0.7rem;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 12px;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.vu-mode-btn:hover {
+    background: rgba(0, 200, 83, 0.1);
+}
+
+.vu-content {
+    height: calc(100% - 25px);
+    position: relative;
+}
+
+.vu-bars {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    height: 100%;
+    gap: 2px;
+}
+
+.vu-bar {
+    flex: 1;
+    background: var(--primary);
+    border-radius: 2px 2px 0 0;
+    transition: height 0.05s ease;
+    min-height: 2px;
+}
+
+.vu-wave-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.vu-wave {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+
+.wave-bar {
+    flex: 1;
+    background: var(--primary);
+    margin: 0 1px;
+    border-radius: 2px 2px 0 0;
+    min-height: 1px;
+    transition: height 0.05s ease;
+}
+
+.wave-animation {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 200%;
+    height: 25px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(0, 200, 83, 0.5) 50%, 
+        transparent 100%);
+    opacity: 0;
+    animation: waveMove 2.5s linear infinite;
+}
+
+@keyframes waveMove {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0%); }
+}
+
+.vu-bars-mode .vu-bars {
+    display: flex;
+}
+
+.vu-bars-mode .vu-wave-container {
+    display: none;
+}
+
+.vu-wave-mode .vu-bars {
+    display: none;
+}
+
+.vu-wave-mode .vu-wave-container {
+    display: block;
+}
+
+.bottom-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 5px;
+    background: #333;
+    border-radius: 3px;
+    cursor: pointer;
+    touch-action: none;
+    position: relative;
+}
+
+.volume-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #4caf50);
+    width: 70%;
+    border-radius: 3px;
+    transition: width 0.1s ease;
+}
+
+.volume-slider:hover .volume-fill {
+    background: linear-gradient(90deg, #00e676, #66bb6a);
+}
+
+/* Mobile Styles */
+@media (max-width: 480px) {
+    .container {
+        width: 100%;
+        border-radius: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    body {
+        padding: 0;
+        align-items: stretch;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .control-btn {
+        width: 46px;
+        height: 46px;
+    }
+    
+    .play-btn {
+        width: 54px;
+        height: 54px;
+        font-size: 1.2rem;
+    }
+    
+    .player-header {
+        padding: 15px 20px;
+    }
+    
+    .album-section {
+        padding: 30px 20px;
+        flex: 1;
+    }
+    
+    .album-art {
+        width: 180px;
+        height: 180px;
+    }
+    
+    .controls-section {
+        padding: 25px 20px;
+    }
+    
+    .vu-container {
+        height: 130px;
+    }
+}
+
+/* High DPI Screens */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .progress-bar, .volume-slider {
+        height: 8px;
+    }
+    
+    .vu-bar, .wave-bar {
+        border-radius: 3px 3px 0 0;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .container {
+        border-color: #444;
+    }
+    
+    .vu-container, .player-header {
+        border-color: #444;
+    }
+}
